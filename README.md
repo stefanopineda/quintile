@@ -46,9 +46,9 @@ the shortcuts stick.
 brew install --cask stefanopineda/quintile/quintile
 ```
 
-**Manual:** download `Quintile.app` from the
-[latest release](https://github.com/stefanopineda/quintile/releases), move it
-to `/Applications`, and launch it.
+**Manual:** download `Quintile.app.zip` from the
+[latest release](https://github.com/stefanopineda/quintile/releases), unzip it,
+move `Quintile.app` to `/Applications`, and launch it.
 
 **From source** (Command Line Tools are enough — no Xcode needed):
 
@@ -56,6 +56,24 @@ to `/Applications`, and launch it.
 git clone https://github.com/stefanopineda/quintile
 cd quintile && make run
 ```
+
+### A note on the unsigned build
+
+Quintile is not yet signed with an Apple Developer ID or notarized (that needs a
+paid Apple Developer Program membership). What this means for you depends on how
+you install:
+
+- **Homebrew is the smooth path.** `brew install --cask` strips the quarantine
+  flag and installs into `/Applications`, so Gatekeeper doesn't block the app
+  and — because it isn't quarantined or run from a translocated path — the
+  Accessibility grant you give it *sticks* across launches. No extra steps.
+- **A direct browser download of the zip is quarantined.** On first launch macOS
+  says *"Quintile can't be opened because the developer cannot be verified."*
+  One-time fix: **System Settings → Privacy & Security → scroll down → Open
+  Anyway** (or run `xattr -dr com.apple.quarantine /Applications/Quintile.app`).
+- **After a `brew upgrade`**, the ad-hoc signature changes with each build, so
+  macOS may treat the new version as a different app and you'll re-grant
+  Accessibility once. This goes away once a Developer ID build ships.
 
 ### Granting Accessibility permission
 
