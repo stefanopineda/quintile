@@ -9,5 +9,6 @@ permissionTests(harness)
 axControllerTests(harness)
 hotkeyTests(harness)
 stateMachineTests(harness)
+actionsTests(harness)
 
 harness.finish()
