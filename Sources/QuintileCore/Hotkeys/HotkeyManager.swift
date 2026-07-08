@@ -36,6 +36,18 @@ public final class HotkeyManager {
     private var registrations: [Registration] = []
     private var tapCreated = false
 
+    /// U8's modal grid-select hook. When set, EVERY tap event (key-downs AND
+    /// key-ups, before the key-down filter) is offered to this closure ahead
+    /// of binding dispatch:
+    /// - `.consume` swallows the event — bound chords do NOT fire;
+    /// - `.passThrough` falls through to normal binding dispatch.
+    ///
+    /// The app coordinator sets this for the duration of a grid-select
+    /// session (routing arrows/Return/Escape/cell keys into the state
+    /// machine) and clears it when the overlay dismisses, restoring normal
+    /// dispatch.
+    public var modalInterceptor: ((KeyEvent) -> EventDisposition)?
+
     public init(tap: EventTapProviding) {
         self.tap = tap
     }
@@ -99,6 +111,11 @@ public final class HotkeyManager {
     /// unbound keys, supersets/subsets of a bound chord) passes through, so
     /// two different bindings can never cross-fire.
     private func dispatch(_ event: KeyEvent) -> EventDisposition {
+        // Modal interception first (see `modalInterceptor`): a consuming
+        // interceptor wins over every binding; passThrough falls through.
+        if let modalInterceptor, case .consume = modalInterceptor(event) {
+            return .consume
+        }
         guard event.isKeyDown else { return .passThrough }
         guard let match = registrations.first(where: {
             $0.binding.keyCode == event.keyCode && $0.binding.modifiers == event.modifiers

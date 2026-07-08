@@ -10,5 +10,6 @@ axControllerTests(harness)
 hotkeyTests(harness)
 stateMachineTests(harness)
 actionsTests(harness)
+appIntegrationTests(harness)
 
 harness.finish()
