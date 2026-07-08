@@ -7,5 +7,6 @@ gridMathTests(harness)
 displayStoreTests(harness)
 permissionTests(harness)
 axControllerTests(harness)
+hotkeyTests(harness)
 
 harness.finish()
