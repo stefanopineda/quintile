@@ -12,6 +12,29 @@ public struct GridProfile: Codable, Equatable, Hashable, Sendable {
         self.rows = rows
         self.cols = cols
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case name, rows, cols
+    }
+
+    /// Custom decode so a corrupt/hand-edited profiles.json surfaces as a
+    /// `DecodingError` (which `GridProfileStore.init` throws and the app's
+    /// fallback path handles) instead of tripping the memberwise
+    /// precondition and crash-looping on every launch.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let name = try container.decode(String.self, forKey: .name)
+        let rows = try container.decode(Int.self, forKey: .rows)
+        let cols = try container.decode(Int.self, forKey: .cols)
+        guard (1...100).contains(rows), (1...100).contains(cols) else {
+            throw DecodingError.dataCorrupted(DecodingError.Context(
+                codingPath: container.codingPath,
+                debugDescription: "GridProfile requires 1...100 rows and cols, got \(rows)×\(cols)"))
+        }
+        self.name = name
+        self.rows = rows
+        self.cols = cols
+    }
 }
 
 /// The three per-display profile slots. The slot is the stable identity a

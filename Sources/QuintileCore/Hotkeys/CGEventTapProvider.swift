@@ -33,10 +33,7 @@ public final class CGEventTapProvider: EventTapProviding {
     public init() {}
 
     deinit {
-        disable()
-        if let runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
-        }
+        destroyTap()
     }
 
     public var isActive: Bool {
@@ -94,6 +91,22 @@ public final class CGEventTapProvider: EventTapProviding {
     public func disable() {
         guard let machPort else { return }
         CGEvent.tapEnable(tap: machPort, enable: false)
+    }
+
+    /// Full teardown: after a revoke, the OS may leave the existing tap
+    /// permanently dead even once trust is re-granted — so destroy it and
+    /// let the next `createTap` build a fresh one.
+    public func destroyTap() {
+        disable()
+        if let runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+        }
+        if let machPort {
+            CFMachPortInvalidate(machPort)
+        }
+        runLoopSource = nil
+        machPort = nil
+        handler = nil
     }
 
     // MARK: Event conversion

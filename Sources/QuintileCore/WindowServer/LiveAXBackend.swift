@@ -124,14 +124,11 @@ public final class LiveAXBackend: AXBackend {
             guard let number = screen.deviceDescription[key] as? NSNumber else { return nil }
             let displayID = CGDirectDisplayID(number.uint32Value)
 
-            // THE single Cocoa→Quartz flip point (see plan, U2). Every
-            // NSScreen-derived rect entering the core is flipped against the
-            // PRIMARY display's height exactly here and nowhere else.
-            let visible = screen.visibleFrame
-            let usable = CGRect(x: visible.minX,
-                                y: primaryHeight - visible.maxY,
-                                width: visible.width,
-                                height: visible.height)
+            // Every NSScreen-derived rect entering the core is flipped
+            // against the PRIMARY display's height via the shared helper
+            // (see `QuartzCocoa`).
+            let usable = QuartzCocoa.quartzRect(fromCocoa: screen.visibleFrame,
+                                                primaryHeight: primaryHeight)
 
             let info = DisplayInfo(
                 vendorNumber: CGDisplayVendorNumber(displayID),
@@ -247,5 +244,14 @@ public final class LiveAXWindowHandle: AXWindowHandle {
     init(element: AXUIElement) {
         self.element = element
         AXUIElementSetMessagingTimeout(element, 0.3)
+    }
+
+    /// Underlying-element identity: the backend creates a fresh wrapper per
+    /// enumeration (`focusedWindow()` vs `windows()`), so two distinct
+    /// `LiveAXWindowHandle`s can refer to the same window. `CFEqual` on
+    /// `AXUIElement` compares the referenced accessibility object.
+    public func isSame(as other: AXWindowHandle) -> Bool {
+        guard let live = other as? LiveAXWindowHandle else { return false }
+        return CFEqual(element, live.element)
     }
 }

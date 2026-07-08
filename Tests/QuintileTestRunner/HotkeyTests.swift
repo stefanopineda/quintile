@@ -9,6 +9,7 @@ private final class FakeEventTap: EventTapProviding {
     private(set) var createCount = 0
     private(set) var enableCount = 0
     private(set) var disableCount = 0
+    private(set) var destroyCount = 0
     private var handler: ((KeyEvent) -> EventDisposition)?
     private var enabled = false
 
@@ -30,6 +31,12 @@ private final class FakeEventTap: EventTapProviding {
         disableCount += 1
     }
 
+    func destroyTap() {
+        destroyCount += 1
+        handler = nil
+        enabled = false
+    }
+
     /// Simulates the OS disabling the tap (kCGEventTapDisabledByTimeout)
     /// without going through the public seam.
     func simulateOSDisable() { enabled = false }
@@ -47,6 +54,15 @@ private func down(_ keyCode: CGKeyCode, _ modifiers: KeyModifiers) -> KeyEvent {
     KeyEvent(keyCode: keyCode, modifiers: modifiers, isKeyDown: true)
 }
 
+/// Manager with a SYNCHRONOUS action executor: production defers action
+/// bodies to the main queue (so a slow action can't stall the tap callback),
+/// but these tests assert on action side effects immediately after inject.
+private func makeManager(tap: FakeEventTap) -> HotkeyManager {
+    let manager = HotkeyManager(tap: tap)
+    manager.actionExecutor = { $0() }
+    return manager
+}
+
 /// U5 test scenarios: hotkey dispatch + tap lifecycle over the fake tap.
 func hotkeyTests(_ t: TestHarness) {
     let leader: KeyModifiers = [.control, .option]
@@ -54,7 +70,7 @@ func hotkeyTests(_ t: TestHarness) {
     t.suite("HotkeyManager dispatch") { t in
         t.test("registered leader+arrow binding fires exactly once and is consumed") {
             let tap = FakeEventTap()
-            let manager = HotkeyManager(tap: tap)
+            let manager = makeManager(tap: tap)
             try manager.activate()
             var fires = 0
             manager.register(HotkeyBinding(keyCode: KeyCode.leftArrow, modifiers: leader),
@@ -67,7 +83,7 @@ func hotkeyTests(_ t: TestHarness) {
 
         t.test("two different bindings do not cross-fire") {
             let tap = FakeEventTap()
-            let manager = HotkeyManager(tap: tap)
+            let manager = makeManager(tap: tap)
             try manager.activate()
             var leftFires = 0
             var gridFires = 0
@@ -87,7 +103,7 @@ func hotkeyTests(_ t: TestHarness) {
 
         t.test("unregister stops triggering: passThrough, no action") {
             let tap = FakeEventTap()
-            let manager = HotkeyManager(tap: tap)
+            let manager = makeManager(tap: tap)
             try manager.activate()
             var fires = 0
             manager.register(HotkeyBinding(keyCode: KeyCode.ansiP, modifiers: leader),
@@ -104,7 +120,7 @@ func hotkeyTests(_ t: TestHarness) {
 
         t.test("non-matching modifiers pass through untouched") {
             let tap = FakeEventTap()
-            let manager = HotkeyManager(tap: tap)
+            let manager = makeManager(tap: tap)
             try manager.activate()
             var fires = 0
             manager.register(HotkeyBinding(keyCode: KeyCode.leftArrow, modifiers: leader),
@@ -124,12 +140,30 @@ func hotkeyTests(_ t: TestHarness) {
             }
             t.expectEqual(fires, 0, "no action for any non-matching event")
         }
+
+        t.test("matched binding is consumed synchronously; the action body runs via the executor") {
+            let tap = FakeEventTap()
+            let manager = HotkeyManager(tap: tap) // default-shaped, recording executor
+            var deferred: [() -> Void] = []
+            manager.actionExecutor = { deferred.append($0) }
+            try manager.activate()
+            var fires = 0
+            manager.register(HotkeyBinding(keyCode: KeyCode.ansiG, modifiers: leader),
+                             id: "grid.select") { fires += 1 }
+
+            let disposition = tap.inject(down(KeyCode.ansiG, leader))
+            t.expect(disposition == .consume, "consume is decided synchronously in the callback")
+            t.expectEqual(fires, 0, "action body must NOT run inline in the tap callback")
+            t.expectEqual(deferred.count, 1, "exactly one invocation handed to the executor")
+            deferred.forEach { $0() }
+            t.expectEqual(fires, 1, "the deferred body runs the registered action")
+        }
     }
 
     t.suite("HotkeyManager tap lifecycle") { t in
         t.test("no tap before permission granted; activate() creates and enables") {
             let tap = FakeEventTap()
-            let manager = HotkeyManager(tap: tap)
+            let manager = makeManager(tap: tap)
             var fires = 0
             manager.register(HotkeyBinding(keyCode: KeyCode.ansiN, modifiers: leader),
                              id: "display.next") { fires += 1 }
@@ -149,16 +183,31 @@ func hotkeyTests(_ t: TestHarness) {
 
         t.test("second activate() is a no-op creation-wise") {
             let tap = FakeEventTap()
-            let manager = HotkeyManager(tap: tap)
+            let manager = makeManager(tap: tap)
             try manager.activate()
-            try manager.activate() // e.g. revoke → re-grant transition
+            try manager.activate() // double-activation while already active
             t.expectEqual(tap.createCount, 1, "tap is created exactly once")
             t.expect(manager.isActive)
         }
 
+        t.test("deactivate destroys the tap; re-activate creates a fresh one (revoke → re-grant)") {
+            let tap = FakeEventTap()
+            let manager = makeManager(tap: tap)
+            try manager.activate()
+            t.expectEqual(tap.createCount, 1)
+
+            manager.deactivate() // granted → revoked
+            t.expectEqual(tap.destroyCount, 1, "deactivate must destroy, not merely disable")
+            t.expect(!manager.isActive)
+
+            try manager.activate() // revoked → granted again
+            t.expectEqual(tap.createCount, 2, "re-grant must create a SECOND tap, not poke the dead one")
+            t.expect(manager.isActive, "the fresh tap is enabled")
+        }
+
         t.test("handleTapDisabledByTimeout re-enables a disabled tap") {
             let tap = FakeEventTap()
-            let manager = HotkeyManager(tap: tap)
+            let manager = makeManager(tap: tap)
             var fires = 0
             manager.register(HotkeyBinding(keyCode: KeyCode.ansiG, modifiers: leader),
                              id: "grid.select") { fires += 1 }
@@ -177,7 +226,7 @@ func hotkeyTests(_ t: TestHarness) {
 
         t.test("handleTapDisabledByTimeout before activation stays inert") {
             let tap = FakeEventTap()
-            let manager = HotkeyManager(tap: tap)
+            let manager = makeManager(tap: tap)
             manager.handleTapDisabledByTimeout()
             t.expectEqual(tap.createCount, 0)
             t.expect(!manager.isActive, "must not enable a tap that was never created")
@@ -187,7 +236,7 @@ func hotkeyTests(_ t: TestHarness) {
     t.suite("SystemShortcutBridge (Fn+Ctrl+Arrow spike, logic level)") { t in
         t.test("takeover consumes Fn+Ctrl+Arrow and reports the direction") {
             let tap = FakeEventTap()
-            let manager = HotkeyManager(tap: tap)
+            let manager = makeManager(tap: tap)
             let bridge = SystemShortcutBridge(hotkeys: manager)
             try manager.activate()
             var directions: [SystemShortcutBridge.Direction] = []
@@ -205,7 +254,7 @@ func hotkeyTests(_ t: TestHarness) {
 
         t.test("without physical fn the chord passes through (fn-tracking contract)") {
             let tap = FakeEventTap()
-            let manager = HotkeyManager(tap: tap)
+            let manager = makeManager(tap: tap)
             let bridge = SystemShortcutBridge(hotkeys: manager)
             try manager.activate()
             var fires = 0
@@ -218,7 +267,7 @@ func hotkeyTests(_ t: TestHarness) {
 
         t.test("disableTakeover releases the chord") {
             let tap = FakeEventTap()
-            let manager = HotkeyManager(tap: tap)
+            let manager = makeManager(tap: tap)
             let bridge = SystemShortcutBridge(hotkeys: manager)
             try manager.activate()
             var fires = 0
@@ -256,7 +305,7 @@ func hotkeyTests(_ t: TestHarness) {
 
         t.test("all defaults fire and consume when registered wholesale") {
             let tap = FakeEventTap()
-            let manager = HotkeyManager(tap: tap)
+            let manager = makeManager(tap: tap)
             try manager.activate()
             var fired: Set<String> = []
             for (id, binding) in HotkeyBinding.defaultBindings {

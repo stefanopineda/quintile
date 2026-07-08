@@ -1,3 +1,5 @@
+import Dispatch
+
 /// Global hotkey registration and dispatch (U5).
 ///
 /// Pure logic over the `EventTapProviding` seam: exact modifier-chord + key
@@ -48,6 +50,17 @@ public final class HotkeyManager {
     /// dispatch.
     public var modalInterceptor: ((KeyEvent) -> EventDisposition)?
 
+    /// Runs matched binding actions. The consume/passThrough decision is made
+    /// synchronously in the tap callback (the OS needs it immediately), but
+    /// the action BODY must not run inline there: one hung app inside an AX
+    /// write would stall system-wide keyboard delivery until the OS kills the
+    /// tap. Default: hop to the main queue. Tests inject `{ $0() }` for
+    /// deterministic synchronous dispatch.
+    ///
+    /// Note the `modalInterceptor` path stays synchronous by design — the
+    /// modal state machine must decide the disposition itself.
+    public var actionExecutor: (@escaping () -> Void) -> Void = { DispatchQueue.main.async(execute: $0) }
+
     public init(tap: EventTapProviding) {
         self.tap = tap
     }
@@ -90,10 +103,14 @@ public final class HotkeyManager {
         tap.enable()
     }
 
-    /// Disables event delivery without tearing down registrations. Suitable
-    /// for the granted → revoked transition.
+    /// Destroys the tap (registrations stay intact). Suitable for the
+    /// granted → revoked transition: a revoked process's tap can be left
+    /// permanently dead by the OS, so merely disabling it would make the next
+    /// `activate()` re-enable a corpse. Destroying forces the next
+    /// `activate()` to create a fresh tap.
     public func deactivate() {
-        tap.disable()
+        tap.destroyTap()
+        tapCreated = false
     }
 
     /// Re-enables the tap after the OS disabled it for slow callback
@@ -107,9 +124,9 @@ public final class HotkeyManager {
     // MARK: Dispatch
 
     /// Exact-match dispatch: key-down whose chord and key equal a registered
-    /// binding runs that action and is consumed; everything else (key-ups,
-    /// unbound keys, supersets/subsets of a bound chord) passes through, so
-    /// two different bindings can never cross-fire.
+    /// binding runs that action (via `actionExecutor`) and is consumed;
+    /// everything else (key-ups, unbound keys, supersets/subsets of a bound
+    /// chord) passes through, so two different bindings can never cross-fire.
     private func dispatch(_ event: KeyEvent) -> EventDisposition {
         // Modal interception first (see `modalInterceptor`): a consuming
         // interceptor wins over every binding; passThrough falls through.
@@ -122,7 +139,9 @@ public final class HotkeyManager {
         }) else {
             return .passThrough
         }
-        match.action()
+        // Consume decided here, synchronously; the body runs off the tap
+        // callback (see `actionExecutor`).
+        actionExecutor(match.action)
         return .consume
     }
 }

@@ -133,6 +133,32 @@ func displayStoreTests(_ t: TestHarness) {
             t.expectEqual(reloaded.cycleActiveSlot(for: identity), .standard)
         }
 
+        t.test("corrupt profiles.json (rows: 0) makes init throw a DecodingError, not load or crash") {
+            // Regression: synthesized Codable used to bypass GridProfile's
+            // rows/cols >= 1 precondition, so a corrupt/hand-edited file
+            // crash-looped the app on every launch. Decode validation now
+            // throws, and GridProfileStore's documented contract is to throw
+            // from init on an undecodable store file (the app layer falls
+            // back to a temp-dir store).
+            let dir = try makeTempDir()
+            let corrupt = """
+            {"version":1,"displays":{"corrupt-display":{\
+            "standard":{"name":"standard","rows":0,"cols":5},\
+            "secondary":{"name":"secondary","rows":2,"cols":2},\
+            "tertiary":{"name":"tertiary","rows":2,"cols":3},\
+            "activeSlot":"standard"}}}
+            """
+            try Data(corrupt.utf8).write(to: dir.appendingPathComponent("profiles.json"))
+
+            do {
+                _ = try GridProfileStore(directory: dir)
+                t.expect(false, "init must throw on a 0-row profile instead of loading it")
+            } catch is DecodingError {
+                // Expected: DecodingError.dataCorrupted from GridProfile's
+                // decode-time validation.
+            }
+        }
+
         t.test("activeProfile reflects updates to the active slot") {
             let dir = try makeTempDir()
             let store = try GridProfileStore(directory: dir)

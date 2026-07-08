@@ -24,10 +24,13 @@ public enum EventTapError: Error, Equatable {
 /// - `createTap` installs the handler but does not enable delivery.
 /// - `enable()`/`disable()` toggle delivery; both are idempotent and no-ops
 ///   before `createTap` succeeds.
+/// - `destroyTap()` tears the tap down completely; a later `createTap` must
+///   build a fresh one. Idempotent; no-op before `createTap` succeeds.
 /// - `isActive` is true only while a created tap is enabled.
 public protocol EventTapProviding: AnyObject {
     func createTap(handler: @escaping (KeyEvent) -> EventDisposition) throws
     func enable()
     func disable()
+    func destroyTap()
     var isActive: Bool { get }
 }

@@ -3,16 +3,24 @@ import Foundation
 
 /// Opaque identity for a window managed through the AX backend (U2).
 ///
-/// Class-constrained so identity is reference identity: two handles refer to
-/// the same window iff they are the same object (`ObjectIdentifier`). The live
-/// implementation wraps an `AXUIElement`; tests use plain fake objects.
-public protocol AXWindowHandle: AnyObject {}
+/// Class-constrained so the default identity is reference identity. The live
+/// implementation wraps an `AXUIElement` and overrides `isSame(as:)` with
+/// `CFEqual` — the backend may hand out distinct wrapper objects for the same
+/// underlying window (e.g. `focusedWindow()` vs `windows()`), so reference
+/// identity alone is not enough there. Tests use plain fake objects, for
+/// which the reference-identity default is correct.
+public protocol AXWindowHandle: AnyObject {
+    /// Whether two opaque handles refer to the same underlying window.
+    /// A protocol requirement (not just an extension method) so conformers
+    /// with wrapper-object identity get dynamic dispatch.
+    func isSame(as other: AXWindowHandle) -> Bool
+}
 
 public extension AXWindowHandle {
     /// Hashable-friendly identity for use in dictionaries/sets of windows.
     var id: ObjectIdentifier { ObjectIdentifier(self) }
 
-    /// Reference-identity comparison between two opaque handles.
+    /// Default: reference-identity comparison between two opaque handles.
     func isSame(as other: AXWindowHandle) -> Bool { self === other }
 }
 
@@ -84,9 +92,10 @@ public struct DisplayDescriptor: Equatable {
 /// integration checklist in `LiveAXBackend.swift`).
 ///
 /// Coordinate rule: every `CGRect` crossing this seam is in Quartz
-/// top-left-origin global coordinates. AX positions already are; the single
-/// Cocoa→Quartz flip for NSScreen-derived rects happens inside
-/// `LiveAXBackend.displays()` and nowhere else.
+/// top-left-origin global coordinates. AX positions already are; every
+/// Cocoa↔Quartz conversion (NSScreen-derived rects entering the core,
+/// mouse locations, panel placement) goes through the shared `QuartzCocoa`
+/// helper — never a hand-rolled flip.
 public protocol AXBackend {
     /// The focused window of the frontmost application, or nil when no app
     /// has a focused window (e.g. Finder desktop focus). Never a crash.

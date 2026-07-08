@@ -55,8 +55,10 @@ real machine when touching that layer.
 ## Conventions
 
 - Swift 5 language mode, macOS 14+.
-- The canonical coordinate space is Quartz top-left-origin global. The single
-  Cocoa→Quartz flip lives in `LiveAXBackend.displays()`; do not add more flips.
+- The canonical coordinate space is Quartz top-left-origin global. Every
+  Cocoa↔Quartz conversion goes through the shared `QuartzCocoa` helper
+  (`Sources/QuintileCore/WindowServer/CoordinateConversion.swift`); do not
+  hand-roll flips at call sites.
 - Typed errors (`AXWindowError`) — never silently swallow an AX failure.
 - Conventional commit messages (`feat(core): …`, `fix: …`).
 

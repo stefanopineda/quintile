@@ -44,11 +44,25 @@ private final class FakeEventTap: EventTapProviding {
 
     func disable() { enabled = false }
 
+    func destroyTap() {
+        handler = nil
+        enabled = false
+    }
+
     @discardableResult
     func inject(_ event: KeyEvent) -> EventDisposition {
         guard let handler, enabled else { return .passThrough }
         return handler(event)
     }
+}
+
+/// Manager with a SYNCHRONOUS action executor: production defers action
+/// bodies to the main queue, but these tests assert on side effects
+/// immediately after inject.
+private func makeManager(tap: FakeEventTap) -> HotkeyManager {
+    let manager = HotkeyManager(tap: tap)
+    manager.actionExecutor = { $0() }
+    return manager
 }
 
 /// Counting backend: proves the profile-cycle path performs zero window
@@ -162,7 +176,7 @@ func appIntegrationTests(_ t: TestHarness) {
 
         t.test("interceptor runs BEFORE binding dispatch: bound chord consumed, action silent") {
             let tap = FakeEventTap()
-            let manager = HotkeyManager(tap: tap)
+            let manager = makeManager(tap: tap)
             try manager.activate()
             var fires = 0
             manager.register(bound, id: "move.left") { fires += 1 }
@@ -181,7 +195,7 @@ func appIntegrationTests(_ t: TestHarness) {
 
         t.test("interceptor sees key-ups too (modal sessions swallow full keystrokes)") {
             let tap = FakeEventTap()
-            let manager = HotkeyManager(tap: tap)
+            let manager = makeManager(tap: tap)
             try manager.activate()
             var sawKeyUp = false
             manager.modalInterceptor = { event in
@@ -195,7 +209,7 @@ func appIntegrationTests(_ t: TestHarness) {
 
         t.test("interceptor passThrough falls through to binding dispatch") {
             let tap = FakeEventTap()
-            let manager = HotkeyManager(tap: tap)
+            let manager = makeManager(tap: tap)
             try manager.activate()
             var fires = 0
             manager.register(bound, id: "move.left") { fires += 1 }
@@ -208,7 +222,7 @@ func appIntegrationTests(_ t: TestHarness) {
 
         t.test("clearing the interceptor restores normal dispatch") {
             let tap = FakeEventTap()
-            let manager = HotkeyManager(tap: tap)
+            let manager = makeManager(tap: tap)
             try manager.activate()
             var fires = 0
             manager.register(bound, id: "move.left") { fires += 1 }

@@ -380,14 +380,25 @@ final class AppCoordinator: NSObject {
         let frame = GridMath.cellSpanToFrame(profile: session.profile,
                                              displayBounds: session.display.usableBounds,
                                              span: span)
-        do {
-            try windowController.setFrame(frame, of: session.window)
-        } catch AXWindowError.invalidWindow {
-            // Target closed between begin and confirm — the moral equivalent
-            // of interrupted(.targetWindowClosed): the dismissOverlay effect
-            // that follows closes the session cleanly, no error feedback.
-        } catch {
-            failureSignal() // alert-free typed-error feedback (menu-bar flash)
+        // Confirm arrives via the modal interceptor, i.e. inside the event
+        // tap callback. The AX write can block on a hung target app, and a
+        // slow tap callback stalls ALL system keyboard input — so hop to the
+        // main queue and let the callback return immediately. The session's
+        // window handle is captured here; the dismissOverlay effect that
+        // follows may clear `session` before the write runs.
+        let window = session.window
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            do {
+                try self.windowController.setFrame(frame, of: window)
+            } catch AXWindowError.invalidWindow {
+                // Target closed between begin and confirm — the moral
+                // equivalent of interrupted(.targetWindowClosed): the
+                // dismissOverlay effect closes the session cleanly, no error
+                // feedback.
+            } catch {
+                self.failureSignal() // alert-free typed-error feedback (menu-bar flash)
+            }
         }
     }
 
@@ -427,11 +438,11 @@ final class AppCoordinator: NSObject {
         let displays = windowController.displays()
         guard !displays.isEmpty else { return nil }
         // NSEvent.mouseLocation is Cocoa bottom-left global; DisplayDescriptor
-        // bounds are Quartz top-left global. Same x; y flips about the
-        // primary display's height.
-        let mouse = NSEvent.mouseLocation
+        // bounds are Quartz top-left global (conversion via the shared
+        // QuartzCocoa helper).
         let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
-        let quartzPoint = CGPoint(x: mouse.x, y: primaryHeight - mouse.y)
+        let quartzPoint = QuartzCocoa.quartzPoint(fromCocoa: NSEvent.mouseLocation,
+                                                  primaryHeight: primaryHeight)
         return displays.first { $0.quartzBounds.contains(quartzPoint) }
     }
 

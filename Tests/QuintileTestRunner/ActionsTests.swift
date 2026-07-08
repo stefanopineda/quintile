@@ -45,6 +45,52 @@ private final class ActionFakeBackend: AXBackend {
     func displays() -> [DisplayDescriptor] { displayList }
 }
 
+/// Handle with WRAPPER identity: the backend below returns a FRESH wrapper
+/// object per call (like `LiveAXBackend` wrapping `AXUIElement`s), so
+/// reference identity cannot tell two handles to the same window apart —
+/// `isSame` must compare the shared underlying identity, and callers must
+/// reach it via dynamic dispatch (the protocol requirement).
+private final class WrapperFakeWindow: AXWindowHandle {
+    let underlying: ActionFakeWindow
+
+    init(underlying: ActionFakeWindow) {
+        self.underlying = underlying
+    }
+
+    func isSame(as other: AXWindowHandle) -> Bool {
+        guard let wrapper = other as? WrapperFakeWindow else { return false }
+        return underlying === wrapper.underlying
+    }
+}
+
+/// Backend whose `focusedWindow()` and `windows()` hand out DISTINCT wrapper
+/// objects for the same underlying window — the live backend's shape.
+private final class WrapperFakeBackend: AXBackend {
+    var allWindows: [ActionFakeWindow] = []
+    var focused: ActionFakeWindow?
+    var displayList: [DisplayDescriptor] = []
+    private(set) var setFrameCallCount = 0
+
+    func focusedWindow() throws -> AXWindowHandle? {
+        focused.map(WrapperFakeWindow.init(underlying:))
+    }
+
+    func windows() throws -> [AXWindowHandle] {
+        allWindows.map(WrapperFakeWindow.init(underlying:))
+    }
+
+    func frame(of window: AXWindowHandle) throws -> CGRect {
+        (window as! WrapperFakeWindow).underlying.frame
+    }
+
+    func setFrame(_ frame: CGRect, of window: AXWindowHandle) throws {
+        setFrameCallCount += 1
+        (window as! WrapperFakeWindow).underlying.frame = frame
+    }
+
+    func displays() -> [DisplayDescriptor] { displayList }
+}
+
 // MARK: - Fixtures
 
 /// A display whose usableBounds equals its quartzBounds, so expected frames
@@ -237,6 +283,30 @@ func actionsTests(_ t: TestHarness) {
             // Vacated footprint = cols 0..1: both occupants are inside it.
             t.expect(occupantTop.frame.maxX <= 400.01)
             t.expect(occupantBottom.frame.maxX <= 400.01)
+        }
+
+        t.test("distinct wrapper handles for the same window: mover is never its own occupant") {
+            // Regression for isSame(as:) as a PROTOCOL REQUIREMENT: with the
+            // live backend's wrapper-object shape, `===` between the
+            // focusedWindow() and windows() handles is always false, so a
+            // statically-dispatched isSame would treat the mover as an
+            // occupant of its own destination and issue a spurious extra
+            // write before the real move.
+            let backend = WrapperFakeBackend()
+            backend.displayList = [makeActionDisplay(id: 1, bounds: bounds)]
+            // 2-wide span (cols 0..1) on 5×2: destination cols 1..2 overlaps
+            // the mover's own current span — the self-occupant trap.
+            let window = ActionFakeWindow(frame: CGRect(x: 0, y: 0, width: 400, height: 300))
+            backend.allWindows = [window]
+            backend.focused = window
+            let controller = AXWindowController(backend: backend)
+            let store = try makeStore()
+
+            let move = MoveWithinGridAction(windowController: controller, store: store)
+            t.expectEqual(move.move(.right), .moved(occupantErrors: []))
+            expectFrame(t, window.frame, CGRect(x: 200, y: 0, width: 400, height: 300))
+            t.expectEqual(backend.setFrameCallCount, 1,
+                          "exactly one write: no occupant-relocation of the mover itself")
         }
 
         t.test("move-right at the rightmost column is .boundaryReached with ZERO writes") {

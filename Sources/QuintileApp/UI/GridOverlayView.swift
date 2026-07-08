@@ -91,16 +91,11 @@ final class GridOverlayController {
     private func place(on display: DisplayDescriptor) {
         // `usableBounds` is in the canonical Quartz top-left-origin global
         // space (see AXBackend). NSPanel.setFrame wants Cocoa bottom-left-
-        // origin global coordinates. The two spaces share x and flip y about
-        // the primary display's height (the primary screen has Quartz origin
-        // (0,0) top-left and Cocoa origin (0,0) bottom-left):
-        //   cocoaY = primaryHeight - quartzMaxY
+        // origin global coordinates — convert via the shared QuartzCocoa
+        // helper.
         let quartz = display.usableBounds
         let primaryHeight = NSScreen.screens.first?.frame.height ?? quartz.maxY
-        let cocoa = NSRect(x: quartz.minX,
-                           y: primaryHeight - quartz.maxY,
-                           width: quartz.width,
-                           height: quartz.height)
+        let cocoa = QuartzCocoa.cocoaRect(fromQuartz: quartz, primaryHeight: primaryHeight)
         panel.setFrame(cocoa, display: true)
     }
 
