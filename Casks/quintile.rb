@@ -13,7 +13,7 @@ cask "quintile" do
   desc "Keyboard-only N×M grid window tiling"
   homepage "https://github.com/stefanopineda/quintile"
 
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "Quintile.app"
 
