@@ -4,5 +4,6 @@
 let harness = TestHarness()
 
 gridMathTests(harness)
+displayStoreTests(harness)
 
 harness.finish()
