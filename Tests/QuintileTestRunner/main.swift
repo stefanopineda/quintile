@@ -8,5 +8,6 @@ displayStoreTests(harness)
 permissionTests(harness)
 axControllerTests(harness)
 hotkeyTests(harness)
+actionsTests(harness)
 
 harness.finish()
