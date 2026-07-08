@@ -1,0 +1,159 @@
+# Quintile
+
+**Keyboard-only grid tiling for macOS.** Define any N×M grid per display, place
+windows on any rectangular span of cells in two keypresses, and move them
+around the grid — without ever touching the mouse.
+
+![Quintile hero demo](docs/demos/hero.gif)
+
+Quintile is free, MIT-licensed, and built on the public Accessibility API
+only: no SIP disabling, no scripting-addition injection, no private
+frameworks. It survives macOS updates the same way Rectangle and AeroSpace do.
+
+## Why Quintile
+
+Most tiling tools stop at halves, quarters, and thirds. Quintile treats your
+display as an arbitrary grid (say, 5×2 on a 32" monitor) and gives you a
+keyboard-driven picker for *any rectangular span* of that grid — the top-left
+2×1, the middle three columns, whatever your workflow wants.
+
+No dedicated, zero-config tiling app ships an interactive keyboard N×M span
+picker. The closest prior art is Hammerspoon's excellent `hs.grid` — which
+requires writing Lua. Quintile gives you that interaction out of the box.
+
+|  | Quintile | Rectangle Pro | Magnet | Moom | BetterSnapTool |
+|--|----------|--------------|--------|------|----------------|
+| Arbitrary N×M grid sizing | ✅ | ⚠️ fixed presets | ⚠️ fixed presets | ✅ | ✅ |
+| Interactive multi-cell span picker (keyboard) | ✅ two keypresses | ❌ | ❌ | ⚠️ pointer-driven grid | ⚠️ pointer-driven |
+| Three switchable grid profiles per display | ✅ | ❌ | ❌ | ⚠️ saved layouts | ❌ |
+| Per-display defaults that survive reboots | ✅ | ✅ | ⚠️ | ✅ | ✅ |
+| Keyboard-only by design | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Open source | ✅ MIT | ❌ | ❌ | ❌ | ❌ |
+| Price | Free | $10 | $5 | $10 | $2 |
+
+*Comparison reflects each product's published feature set at the time of
+writing; corrections welcome.*
+
+Keyboard-only is a permanent product principle, not a missing feature: no
+mouse-drag snap zones, ever. A smaller, all-keyboard surface is what makes
+the shortcuts stick.
+
+## Install
+
+**Homebrew:**
+
+```sh
+brew install --cask stefanopineda/quintile/quintile
+```
+
+**Manual:** download `Quintile.app` from the
+[latest release](https://github.com/stefanopineda/quintile/releases), move it
+to `/Applications`, and launch it.
+
+**From source** (Command Line Tools are enough — no Xcode needed):
+
+```sh
+git clone https://github.com/stefanopineda/quintile
+cd quintile && make run
+```
+
+### Granting Accessibility permission
+
+Quintile moves windows through the macOS Accessibility API, which requires a
+one-time permission grant:
+
+1. Launch Quintile — the onboarding window appears and macOS shows the
+   permission prompt.
+2. Open **System Settings → Privacy & Security → Accessibility** (the
+   onboarding window's button takes you straight there).
+3. Enable **Quintile** in the list.
+
+The menu-bar icon shows `⊞!` until permission is granted. That's the only
+permission Quintile ever asks for — no Screen Recording, no network.
+
+## The grid picker
+
+![Grid-select overlay demo](docs/demos/grid-select.gif)
+
+Press `⌃⌥G` and the grid overlay appears on your focused window's display,
+with a key label in every cell:
+
+- **Two keypresses** place the window: first key sets one corner, second key
+  sets the opposite corner — the window fills the span between them.
+  Same key twice = that single cell.
+- Or refine with **arrows** (move), **⇧+arrows** (extend a span),
+  **⏎** (confirm), **esc** (cancel).
+
+## Shortcuts
+
+All shortcuts use the `⌃⌥` (Control+Option) leader. The full list also lives
+in the app: **menu bar → Shortcuts…**
+
+| Action | Shortcut |
+|--------|----------|
+| Grid picker (span selection) | `⌃⌥G` |
+| Move window one cell | `⌃⌥←` `⌃⌥→` `⌃⌥↑` `⌃⌥↓` |
+| Quadrants (TL / TR / BL / BR) | `⌃⌥1` … `⌃⌥4` |
+| Thirds (left / center / right) | `⌃⌥[` `⌃⌥]` `⌃⌥\` |
+| Sixths (thirds × top/bottom) | `⌃⌥⇧1` … `⌃⌥⇧6` |
+| Cycle grid profile for current display | `⌃⌥P` |
+| Send window to next display | `⌃⌥N` |
+
+![Presets and move demo](docs/demos/presets-move.gif)
+
+Moving a window into occupied cells relocates the occupants into the space
+you vacated — sizes preserved, no windows lost off-grid. At a grid edge the
+move is a no-op with a soft feedback cue, so you always know the keystroke
+registered.
+
+## Grid profiles
+
+![Profile cycling demo](docs/demos/profiles.gif)
+
+Every display carries three named grid profiles — **standard** (5×2 by
+default), **secondary** (2×2), **tertiary** (3×2) — each independently
+editable in Preferences (up to 10×4). `⌃⌥P` cycles the active profile for
+the display holding your focused window and flashes the new grid so you can
+see what you switched to. Cycling never moves your windows; it changes what
+the grid *means* for the next placement.
+
+Profiles are remembered per display — by hardware identity, not port — so
+your 32" monitor keeps its 5×2 whether it's plugged into the dock or direct.
+
+## macOS's own tiling shortcuts
+
+macOS binds `Fn+Ctrl+Arrow` to its built-in half/quarter tiling. Quintile
+ships an experimental "take over macOS tiling shortcuts" mode (off by
+default) that intercepts those chords. Reliability varies by macOS version;
+the dependable route is to disable the built-in shortcuts in **System
+Settings → Keyboard** and let Quintile observe the chords — see the notes in
+`Sources/QuintileCore/Hotkeys/SystemShortcutBridge.swift`.
+
+## Troubleshooting
+
+- **A window won't move or resize.** Some Electron and Java apps reject
+  Accessibility resize requests. Quintile surfaces the failure (menu-bar
+  flash) instead of silently doing nothing — the window, not Quintile, is
+  declining.
+- **Display forgets its profiles behind a KVM or dock.** Some KVMs/docks
+  mangle the display serial number, so identity falls back to name +
+  resolution; two identical serial-less monitors can collide. Known
+  limitation for v1.
+- **Hotkeys stopped working after revoking/re-granting permission.**
+  Re-grant in System Settings; Quintile re-arms its event tap automatically
+  on the next permission check (within ~3 s).
+
+## Building & releasing
+
+- `make test` — full test suite (no permissions needed; AX and event-tap
+  layers are tested against fakes behind protocol seams).
+- `make app` — assembles `dist/Quintile.app` (ad-hoc signed) from the SPM
+  build; see `Scripts/build-app.sh`.
+- Real releases must be signed with a **Developer ID Application** identity
+  and **notarized** (`CODESIGN_IDENTITY="Developer ID Application: …" make app`,
+  then `notarytool`). Unsigned builds are Gatekeeper-blocked, and App
+  Translocation breaks the Accessibility grant between launches.
+
+## License
+
+[MIT](LICENSE). Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
