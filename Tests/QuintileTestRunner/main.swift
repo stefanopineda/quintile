@@ -6,5 +6,6 @@ let harness = TestHarness()
 gridMathTests(harness)
 displayStoreTests(harness)
 permissionTests(harness)
+axControllerTests(harness)
 
 harness.finish()
