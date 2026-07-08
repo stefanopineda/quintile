@@ -93,10 +93,6 @@ private func identity(serial: UInt32) -> DisplayIdentity {
         pixelSize: CGSize(width: 3840, height: 2160)))
 }
 
-private func down(_ keyCode: CGKeyCode, _ modifiers: KeyModifiers) -> KeyEvent {
-    KeyEvent(keyCode: keyCode, modifiers: modifiers, isKeyDown: true)
-}
-
 // MARK: - U8 app-integration scenarios (pure logic — no AppKit windows)
 
 func appIntegrationTests(_ t: TestHarness) {

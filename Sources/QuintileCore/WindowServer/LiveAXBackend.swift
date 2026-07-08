@@ -63,7 +63,11 @@ public final class LiveAXBackend: AXBackend {
     public func windows() throws -> [AXWindowHandle] {
         try ensurePermitted()
         var result: [AXWindowHandle] = []
-        for app in NSWorkspace.shared.runningApplications where app.activationPolicy == .regular {
+        // Hidden apps (⌘H) still report their windows via AX, but those
+        // windows are invisible — relocating them (e.g. as move occupants)
+        // would rearrange things the user can't see. Skip them.
+        for app in NSWorkspace.shared.runningApplications
+        where app.activationPolicy == .regular && !app.isHidden {
             let appElement = AXUIElementCreateApplication(app.processIdentifier)
             AXUIElementSetMessagingTimeout(appElement, Self.messagingTimeout)
 
@@ -216,7 +220,8 @@ public final class LiveAXBackend: AXBackend {
     }
 
     /// Maps a raw `AXError` to the typed error surface; nil for `.success`.
-    static func mapAXError(_ error: AXError) -> AXWindowError? {
+    /// Public (and pure) so the mapping is unit-testable without AX trust.
+    public static func mapAXError(_ error: AXError) -> AXWindowError? {
         switch error {
         case .success:
             return nil

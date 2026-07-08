@@ -237,6 +237,13 @@ public extension GridSelectionStateMachine {
         Array("ZXCVBNM,./"),
     ]
 
+    /// Largest column count the cell-key labels can address (derived from
+    /// the keyboard-row layout above — the single source of the 10×4 limit).
+    static var maxLabeledCols: Int { keyRows[0].count }
+
+    /// Largest row count the cell-key labels can address.
+    static var maxLabeledRows: Int { keyRows.count }
+
     /// Per-cell key labels for a profile: row r of the grid maps to keyboard
     /// row r truncated to `cols` keys (digits, then QWERTY home rows).
     ///

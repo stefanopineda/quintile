@@ -1,4 +1,6 @@
+import CoreGraphics
 import Foundation
+import QuintileCore
 
 /// Minimal test harness with a Swift-Testing-shaped API.
 ///
@@ -65,4 +67,12 @@ final class TestHarness {
             exit(1)
         }
     }
+}
+
+// MARK: - Shared key-event fixture
+
+/// A key-down event — shared by HotkeyTests and AppIntegrationTests (both
+/// previously carried identical file-private copies).
+func down(_ keyCode: CGKeyCode, _ modifiers: KeyModifiers) -> KeyEvent {
+    KeyEvent(keyCode: keyCode, modifiers: modifiers, isKeyDown: true)
 }

@@ -25,6 +25,8 @@ final class AppCoordinator: NSObject {
     private let store: GridProfileStore
     /// Non-nil when the default store threw and we fell back (see makeStore).
     private let storeFallbackError: Error?
+    /// Non-nil when a corrupt profiles.json was set aside (see makeStore).
+    private let storeQuarantinePath: String?
 
     private let windowController: AXWindowController
     private let permissionManager = AccessibilityPermissionManager()
@@ -59,6 +61,7 @@ final class AppCoordinator: NSObject {
         let made = AppCoordinator.makeStore()
         store = made.store
         storeFallbackError = made.fallbackError
+        storeQuarantinePath = made.quarantinePath
 
         let controller = AXWindowController(backend: LiveAXBackend())
         windowController = controller
@@ -70,19 +73,41 @@ final class AppCoordinator: NSObject {
     }
 
     /// Store creation policy (documented decision): if the default
-    /// Application Support store cannot be created/decoded, Quintile stays
-    /// usable for the session with a store in a temp directory (tiling and
-    /// cycling work; edits simply do not survive relaunch) and the user is
-    /// told once via an alert in `start()`. Only if even the temp-dir store
-    /// fails do we alert and quit gracefully.
-    private static func makeStore() -> (store: GridProfileStore, fallbackError: Error?) {
+    /// Application Support store cannot be created/decoded, the existing
+    /// profiles.json (if any) is quarantined — renamed alongside itself, so
+    /// user data is never deleted — and the default-directory store is
+    /// retried on the now-fresh directory (edits keep persisting across
+    /// relaunches). Only if that retry also fails does Quintile fall back to
+    /// a temp-directory store for the session (tiling and cycling work;
+    /// edits simply do not survive relaunch); the user is told once via an
+    /// alert in `start()`. Only if even the temp-dir store fails do we alert
+    /// and quit gracefully.
+    private static func makeStore()
+        -> (store: GridProfileStore, fallbackError: Error?, quarantinePath: String?) {
         do {
-            return (try GridProfileStore(), nil)
+            return (try GridProfileStore(), nil, nil)
         } catch {
+            var quarantinePath: String?
+            let fileURL = GridProfileStore.defaultDirectory
+                .appendingPathComponent("profiles.json", isDirectory: false)
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyyMMdd-HHmmss"
+                let backupURL = fileURL.deletingLastPathComponent()
+                    .appendingPathComponent(
+                        "profiles-\(formatter.string(from: Date())).corrupt.json",
+                        isDirectory: false)
+                if (try? FileManager.default.moveItem(at: fileURL, to: backupURL)) != nil {
+                    quarantinePath = backupURL.path
+                    if let retried = try? GridProfileStore() {
+                        return (retried, nil, quarantinePath)
+                    }
+                }
+            }
             let tempDir = FileManager.default.temporaryDirectory
                 .appendingPathComponent("Quintile-fallback-\(ProcessInfo.processInfo.processIdentifier)")
             if let fallback = try? GridProfileStore(directory: tempDir) {
-                return (fallback, error)
+                return (fallback, error, quarantinePath)
             }
             let alert = NSAlert()
             alert.alertStyle = .critical
@@ -130,12 +155,27 @@ final class AppCoordinator: NSObject {
         }
 
         if let storeFallbackError {
+            let backupNote = storeQuarantinePath.map {
+                " The unreadable profile file was set aside at \($0)."
+            } ?? ""
             let alert = NSAlert()
             alert.messageText = "Profile storage unavailable"
             alert.informativeText = """
             Quintile could not open its profile store \
             (\(storeFallbackError.localizedDescription)). \
-            Grids work normally this session, but edits won't survive a relaunch.
+            Grids work normally this session, but edits won't survive a relaunch.\
+            \(backupNote)
+            """
+            alert.runModal()
+        } else if let storeQuarantinePath {
+            // Quarantine + retry succeeded: profiles were reset to defaults
+            // but persistence is healthy again.
+            let alert = NSAlert()
+            alert.messageText = "Grid profiles were reset"
+            alert.informativeText = """
+            Quintile could not read its saved grid profiles, so it started \
+            fresh with the defaults. The unreadable file was set aside at \
+            \(storeQuarantinePath).
             """
             alert.runModal()
         }
@@ -222,7 +262,16 @@ final class AppCoordinator: NSObject {
         switch moveAction.move(direction) {
         case .boundaryReached: boundarySignal()
         case .failed: failureSignal()
-        case .moved, .noFocusedWindow: break
+        case .moved(let occupantErrors):
+            // The mover landed, but occupant relocations may have failed
+            // (partial-failure semantics of MoveWithinGridAction). Surface
+            // that like any other failed AX write instead of dropping it.
+            if !occupantErrors.isEmpty {
+                FileHandle.standardError.write(
+                    Data("Quintile: occupant relocation failed: \(occupantErrors)\n".utf8))
+                failureSignal()
+            }
+        case .noFocusedWindow: break
         }
     }
 
@@ -250,6 +299,21 @@ final class AppCoordinator: NSObject {
         menuBar.showTransient(title: "⚠︎", duration: 0.6)
     }
 
+    /// One-time (per launch) surfacing of profile-persist failures after a
+    /// profile-mutating operation (cycle, preferences edits). Documented
+    /// choice: a stderr log plus a menu-bar warning flash — consistent with
+    /// the app's alert-free typed-error feedback pattern; an NSAlert on every
+    /// stepper keystroke would be hostile. Guarded so it fires at most once
+    /// per launch, not on every mutation.
+    private var warnedPersistError = false
+    private func surfacePersistErrorIfNeeded() {
+        guard !warnedPersistError, let error = store.lastPersistError else { return }
+        warnedPersistError = true
+        FileHandle.standardError.write(
+            Data("Quintile: profile changes are not being saved: \(error)\n".utf8))
+        menuBar.showTransient(title: "⚠︎ not saved", duration: 1.5)
+    }
+
     // MARK: - Profile cycle (pointer-only — NEVER retiles)
 
     /// Target display: the focused window's display; fallback to the display
@@ -265,6 +329,9 @@ final class AppCoordinator: NSObject {
         menuBar.showTransient(
             title: "\(result.profile.cols)×\(result.profile.rows) \(result.profile.name)",
             duration: 0.8)
+        // After the indicator, so a persist-failure warning (if any) wins the
+        // status-item slot. Cycle persists the active-slot pointer.
+        surfacePersistErrorIfNeeded()
         if session == nil { // don't clobber a live grid-select overlay
             overlay.flash(profile: result.profile, on: display, duration: 0.5)
         }
@@ -492,7 +559,7 @@ final class AppCoordinator: NSObject {
     }
 
     private func makePreferences() -> PreferencesWindowController {
-        PreferencesWindowController(
+        let controller = PreferencesWindowController(
             store: store,
             connectedDisplays: { [weak self] in self?.windowController.displays() ?? [] },
             shortcutRows: { [weak self] in
@@ -502,6 +569,10 @@ final class AppCoordinator: NSObject {
                     .map { (action: ActionNames.displayName(for: $0.key),
                             chord: $0.value.description) }
             })
+        controller.onProfilePersisted = { [weak self] in
+            self?.surfacePersistErrorIfNeeded()
+        }
+        return controller
     }
 
     private func showPreferences(tab: PreferencesWindowController.Tab) {

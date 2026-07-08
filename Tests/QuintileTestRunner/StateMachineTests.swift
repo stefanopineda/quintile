@@ -287,5 +287,10 @@ func stateMachineTests(_ t: TestHarness) {
             t.expectEqual(GridSelectionStateMachine.cellKeyLayout(for: tall), [])
             t.expectEqual(GridSelectionStateMachine.cell(forKey: "1", profile: wide), nil)
         }
+
+        t.test("exposed labeling limits are 10 columns × 4 rows (preferences steppers read these)") {
+            t.expectEqual(GridSelectionStateMachine.maxLabeledCols, 10)
+            t.expectEqual(GridSelectionStateMachine.maxLabeledRows, 4)
+        }
     }
 }

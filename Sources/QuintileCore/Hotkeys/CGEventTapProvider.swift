@@ -81,11 +81,25 @@ public final class CGEventTapProvider: EventTapProviding {
         // Created disabled per the EventTapProviding contract; enable() turns
         // delivery on.
         CGEvent.tapEnable(tap: port, enable: false)
+        resyncPhysicalFnState()
     }
 
     public func enable() {
         guard let machPort else { return }
+        // enable() also covers the tapDisabledByTimeout/ByUserInput re-enable
+        // path in process(type:event:).
+        resyncPhysicalFnState()
         CGEvent.tapEnable(tap: machPort, enable: true)
+    }
+
+    /// Re-derives the physical fn state from the session's combined flags.
+    /// While the tap is disabled or nonexistent (creation gaps, OS timeout
+    /// disables, deactivate/reactivate cycles) `flagsChanged` events are
+    /// missed, so `physicalFnIsDown` can go stale — e.g. a stale `true`
+    /// would misreport Ctrl+Arrow as Fn+Ctrl+Arrow forever after.
+    private func resyncPhysicalFnState() {
+        physicalFnIsDown = CGEventSource.flagsState(.combinedSessionState)
+            .contains(.maskSecondaryFn)
     }
 
     public func disable() {

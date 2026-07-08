@@ -50,10 +50,6 @@ private final class FakeEventTap: EventTapProviding {
     }
 }
 
-private func down(_ keyCode: CGKeyCode, _ modifiers: KeyModifiers) -> KeyEvent {
-    KeyEvent(keyCode: keyCode, modifiers: modifiers, isKeyDown: true)
-}
-
 /// Manager with a SYNCHRONOUS action executor: production defers action
 /// bodies to the main queue (so a slow action can't stall the tap callback),
 /// but these tests assert on action side effects immediately after inject.

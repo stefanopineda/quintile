@@ -1,69 +1,19 @@
+import ApplicationServices
 import CoreGraphics
 import QuintileCore
 
-// MARK: - Fakes
+// MARK: - Tests
 //
 // Real AX cannot run here: the test runner is not Accessibility-trusted, by
-// design. Everything below drives `AXWindowController` through `FakeAXBackend`;
-// live-AX behavior is covered by the manual integration checklist documented
-// in `LiveAXBackend.swift`.
+// design. Everything below drives `AXWindowController` through the shared
+// `FakeAXBackend` (see SharedFakes.swift); live-AX behavior is covered by
+// the manual integration checklist documented in `LiveAXBackend.swift`.
 
-/// A fake window: a mutable frame plus configurable misbehavior.
-private final class FakeWindow: AXWindowHandle {
-    var frame: CGRect
-    /// Simulates an Electron/Java-style app that silently ignores size writes
-    /// (position writes still apply).
-    var ignoresSizeWrites = false
-    /// Thrown by every frame read/write — simulates a hung or dead app.
-    var accessError: AXWindowError?
-
-    init(frame: CGRect) {
-        self.frame = frame
-    }
-}
-
-private final class FakeAXBackend: AXBackend {
-    var allWindows: [FakeWindow] = []
-    var focused: FakeWindow?
-    var displayList: [DisplayDescriptor] = []
-
-    func focusedWindow() throws -> AXWindowHandle? { focused }
-
-    func windows() throws -> [AXWindowHandle] { allWindows }
-
-    func frame(of window: AXWindowHandle) throws -> CGRect {
-        let fake = window as! FakeWindow
-        if let error = fake.accessError { throw error }
-        return fake.frame
-    }
-
-    func setFrame(_ frame: CGRect, of window: AXWindowHandle) throws {
-        let fake = window as! FakeWindow
-        if let error = fake.accessError { throw error }
-        if fake.ignoresSizeWrites {
-            fake.frame.origin = frame.origin // size write silently dropped
-        } else {
-            fake.frame = frame
-        }
-    }
-
-    func displays() -> [DisplayDescriptor] { displayList }
-}
-
+/// Usable area stand-in: menu-bar-sized inset from the top (Quartz top-left
+/// origin, so the inset raises minY and shrinks height).
 private func makeDisplay(id: CGDirectDisplayID, quartzBounds: CGRect) -> DisplayDescriptor {
-    DisplayDescriptor(
-        id: id,
-        quartzBounds: quartzBounds,
-        // Usable area stand-in: menu-bar-sized inset from the top (Quartz
-        // top-left origin, so the inset raises minY and shrinks height).
-        usableBounds: CGRect(x: quartzBounds.minX, y: quartzBounds.minY + 25,
-                             width: quartzBounds.width, height: quartzBounds.height - 25),
-        info: DisplayInfo(vendorNumber: 100 + id, modelNumber: 200, serialNumber: 300 + id,
-                          localizedName: "Fake \(id)", pixelSize: quartzBounds.size)
-    )
+    makeFakeDisplay(id: id, quartzBounds: quartzBounds, menuBarInset: 25)
 }
-
-// MARK: - Tests
 
 /// U2 test scenarios: typed AX errors and display partitioning, driven
 /// through the backend seam.
@@ -208,6 +158,40 @@ func axControllerTests(_ t: TestHarness) {
             let windows = try controller.windows(onDisplay: displayA)
             t.expectEqual(windows.count, 1)
             t.expect(windows.first?.isSame(as: healthy) == true)
+        }
+    }
+
+    // Pure AXError → AXWindowError mapping: needs no AX trust, so the live
+    // backend's error surface is at least unit-covered here.
+    t.suite("LiveAXBackend.mapAXError") { t in
+        t.test(".success maps to nil (no error)") {
+            t.expect(LiveAXBackend.mapAXError(.success) == nil)
+        }
+
+        t.test("each specific AXError code maps to its typed AXWindowError") {
+            let expectations: [(AXError, AXWindowError)] = [
+                (.cannotComplete, .cannotComplete),
+                (.apiDisabled, .notPermitted),
+                (.invalidUIElement, .invalidWindow),
+                (.attributeUnsupported, .attributeUnsupported),
+                (.parameterizedAttributeUnsupported, .attributeUnsupported),
+                (.actionUnsupported, .attributeUnsupported),
+                (.notificationUnsupported, .attributeUnsupported),
+                (.notImplemented, .attributeUnsupported),
+            ]
+            for (axError, expected) in expectations {
+                t.expectEqual(LiveAXBackend.mapAXError(axError), expected,
+                              "AXError(\(axError.rawValue))")
+            }
+        }
+
+        t.test("unlisted codes are preserved as .unexpected(code:)") {
+            for axError: AXError in [.failure, .illegalArgument, .invalidUIElementObserver,
+                                     .notificationAlreadyRegistered, .noValue] {
+                t.expectEqual(LiveAXBackend.mapAXError(axError),
+                              .unexpected(code: axError.rawValue),
+                              "AXError(\(axError.rawValue))")
+            }
         }
     }
 }

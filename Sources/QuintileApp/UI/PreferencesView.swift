@@ -34,6 +34,10 @@ final class PreferencesWindowController: NSObject, NSTableViewDataSource, NSTabl
     private let connectedDisplays: () -> [DisplayDescriptor]
     private let shortcutRowsProvider: () -> [(action: String, chord: String)]
 
+    /// Called after every persisting edit; the coordinator hooks its
+    /// once-per-launch persist-error surfacing here (see FIX: lastPersistError).
+    var onProfilePersisted: (() -> Void)?
+
     private var rows: [Row] = []
     private var shortcutRows: [(action: String, chord: String)] = []
 
@@ -136,6 +140,7 @@ final class PreferencesWindowController: NSObject, NSTableViewDataSource, NSTabl
         profile.rows = rows
         profile.cols = cols
         store.updateProfile(profile, slot: slot, for: entry.identity) // persist-on-change
+        onProfilePersisted?() // one-time persist-error surfacing (guarded upstream)
     }
 
     // MARK: - Window construction
@@ -288,15 +293,17 @@ private final class ProfileEditorView: NSView {
     init() {
         super.init(frame: .zero)
 
+        // Limits come from the cell-key labeling layout (single source of
+        // the 10×4 limit) — never hardcoded here.
         colsStepper.minValue = 1
-        colsStepper.maxValue = 10
+        colsStepper.maxValue = Double(GridSelectionStateMachine.maxLabeledCols)
         colsStepper.increment = 1
         colsStepper.valueWraps = false
         colsStepper.target = self
         colsStepper.action = #selector(stepped)
 
         rowsStepper.minValue = 1
-        rowsStepper.maxValue = 4
+        rowsStepper.maxValue = Double(GridSelectionStateMachine.maxLabeledRows)
         rowsStepper.increment = 1
         rowsStepper.valueWraps = false
         rowsStepper.target = self
@@ -317,7 +324,9 @@ private final class ProfileEditorView: NSView {
         rowsRow.spacing = 8
 
         let limitLabel = NSTextField(
-            wrappingLabelWithString: "Limits: 1–10 columns, 1–4 rows — the range the grid-select cell-key labels cover.")
+            wrappingLabelWithString: "Limits: 1–\(GridSelectionStateMachine.maxLabeledCols) columns, "
+                + "1–\(GridSelectionStateMachine.maxLabeledRows) rows — the range the "
+                + "grid-select cell-key labels cover.")
         limitLabel.font = NSFont.systemFont(ofSize: 11)
         limitLabel.textColor = .secondaryLabelColor
         limitLabel.preferredMaxLayoutWidth = 320
