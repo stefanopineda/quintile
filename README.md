@@ -60,20 +60,41 @@ cd quintile && make run
 ### A note on the unsigned build
 
 Quintile is not yet signed with an Apple Developer ID or notarized (that needs a
-paid Apple Developer Program membership). What this means for you depends on how
-you install:
+paid Apple Developer Program membership). Because of that, macOS Gatekeeper will
+block it on first launch — you'll see *"Apple could not verify 'Quintile' is
+free of malware."* This is expected for any unsigned app; it is not a real
+malware warning. (If you hit that dialog, click **Done** or **Cancel** — **not
+"Move to Trash"**, which deletes the app.)
 
-- **Homebrew is the smooth path.** `brew install --cask` strips the quarantine
-  flag and installs into `/Applications`, so Gatekeeper doesn't block the app
-  and — because it isn't quarantined or run from a translocated path — the
-  Accessibility grant you give it *sticks* across launches. No extra steps.
-- **A direct browser download of the zip is quarantined.** On first launch macOS
-  says *"Quintile can't be opened because the developer cannot be verified."*
-  One-time fix: **System Settings → Privacy & Security → scroll down → Open
-  Anyway** (or run `xattr -dr com.apple.quarantine /Applications/Quintile.app`).
-- **After a `brew upgrade`**, the ad-hoc signature changes with each build, so
-  macOS may treat the new version as a different app and you'll re-grant
-  Accessibility once. This goes away once a Developer ID build ships.
+You only need to clear this **once**. Pick whichever you prefer:
+
+**Option A — install without quarantine in one command (recommended):**
+
+```sh
+brew install --cask --no-quarantine stefanopineda/quintile/quintile
+```
+
+The `--no-quarantine` flag tells Homebrew to skip the Gatekeeper quarantine flag,
+so the app launches straight away. (A plain `brew install --cask` *does* apply
+quarantine — Homebrew adds it by default — so use the flag, or clear it after
+with Option B/C.)
+
+**Option B — clear it after any install (Homebrew or manual download):**
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Quintile.app
+```
+
+Then launch normally.
+
+**Option C — allow it from the GUI:** try to open Quintile, dismiss the dialog,
+then go to **System Settings → Privacy & Security**, scroll to the Security
+section, and click **Open Anyway** next to Quintile.
+
+**After a `brew upgrade`** to a future version, the ad-hoc signature changes, so
+macOS treats the new build as a new app: re-run your unlock step once and, if
+prompted, re-grant Accessibility. All of this disappears once a Developer
+ID-signed, notarized build ships.
 
 ### Granting Accessibility permission
 

@@ -33,6 +33,12 @@ cp "${BIN}" "${APP_DIR}/Contents/MacOS/Quintile"
 cp Scripts/Info.plist "${APP_DIR}/Contents/Info.plist"
 
 echo "▸ codesign (identity: ${CODESIGN_IDENTITY})"
-codesign --force --options runtime --sign "${CODESIGN_IDENTITY}" "${APP_DIR}"
+# Hardened runtime is required for notarization but pointless (and stricter than
+# needed) for an ad-hoc "-" signature, so only enable it for a real Developer ID.
+if [ "${CODESIGN_IDENTITY}" = "-" ]; then
+  codesign --force --sign - "${APP_DIR}"
+else
+  codesign --force --options runtime --sign "${CODESIGN_IDENTITY}" "${APP_DIR}"
+fi
 
 echo "✓ built ${APP_DIR}"
