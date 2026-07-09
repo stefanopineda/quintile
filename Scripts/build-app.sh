@@ -31,6 +31,7 @@ rm -rf "${APP_DIR}"
 mkdir -p "${APP_DIR}/Contents/MacOS" "${APP_DIR}/Contents/Resources"
 cp "${BIN}" "${APP_DIR}/Contents/MacOS/Quintile"
 cp Scripts/Info.plist "${APP_DIR}/Contents/Info.plist"
+cp Scripts/AppIcon.icns "${APP_DIR}/Contents/Resources/AppIcon.icns"
 
 echo "▸ codesign (identity: ${CODESIGN_IDENTITY})"
 # Hardened runtime is required for notarization but pointless (and stricter than

@@ -13,7 +13,7 @@
 # or use System Settings > Privacy & Security > Open Anyway. See caveats.
 cask "quintile" do
   version "0.1.0"
-  sha256 "2df0c5f74c5830809fee1cd921f22d10a5e4cc22691f8ce73ecc68c0ec61fd24"
+  sha256 "fa5c19134383764034b5f62b9b12321598eb23124fa925f505146f17cefccc65"
 
   url "https://github.com/stefanopineda/quintile/releases/download/v#{version}/Quintile.app.zip"
   name "Quintile"
