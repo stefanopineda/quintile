@@ -10,6 +10,10 @@ Quintile is free, MIT-licensed, and built on the public Accessibility API
 only: no SIP disabling, no scripting-addition injection, no private
 frameworks. It survives macOS updates the same way Rectangle and AeroSpace do.
 
+**Status:** v0.1.0 released · macOS 14+ · Apple Silicon · 120 tests passing ·
+unsigned build ([details](#a-note-on-the-unsigned-build)). See
+[docs/HANDOFF.md](docs/HANDOFF.md) for the full build log, decisions, and roadmap.
+
 ## Why Quintile
 
 Most tiling tools stop at halves, quarters, and thirds. Quintile treats your
@@ -177,16 +181,55 @@ Settings → Keyboard** and let Quintile observe the chords — see the notes in
   Re-grant in System Settings; Quintile re-arms its event tap automatically
   on the next permission check (within ~3 s).
 
+## Architecture
+
+Quintile is a Swift Package with two targets:
+
+- **`QuintileCore`** — all logic, with zero SwiftUI/window dependencies. The
+  Accessibility API, the global event tap, and the permission trust check are
+  each hidden behind a protocol seam, so the grid math, display identity,
+  persistence, permission state machine, hotkey dispatch, grid-select state
+  machine, and tiling actions are all unit-tested against fakes — no
+  permissions or real display required.
+- **`QuintileApp`** — a thin AppKit shell (LSUIElement menu-bar agent): the
+  menu bar, the non-activating overlay panel, onboarding, preferences, and the
+  `AppCoordinator` that wires everything together.
+
+The canonical coordinate space is Quartz top-left-origin global; the single
+Cocoa↔Quartz conversion lives in `WindowServer/CoordinateConversion.swift`.
+Tests run as a plain executable (`make test` → `swift run quintile-tests`)
+because Command Line Tools ship no usable XCTest/Swift Testing harness — the
+`TestHarness` API mirrors Swift Testing so a move to `swift test` under full
+Xcode is mechanical. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full layout.
+
 ## Building & releasing
 
-- `make test` — full test suite (no permissions needed; AX and event-tap
-  layers are tested against fakes behind protocol seams).
+- `make test` — full test suite (120 tests; no permissions needed).
 - `make app` — assembles `dist/Quintile.app` (ad-hoc signed) from the SPM
   build; see `Scripts/build-app.sh`.
-- Real releases must be signed with a **Developer ID Application** identity
+- `make run` — build and launch.
+- Real releases should be signed with a **Developer ID Application** identity
   and **notarized** (`CODESIGN_IDENTITY="Developer ID Application: …" make app`,
-  then `notarytool`). Unsigned builds are Gatekeeper-blocked, and App
-  Translocation breaks the Accessibility grant between launches.
+  then `notarytool` + `stapler`). The current v0.1.0 build is ad-hoc signed; the
+  Homebrew cask works around Gatekeeper by clearing quarantine on install (see
+  [the unsigned-build note](#a-note-on-the-unsigned-build)). Full release steps
+  are in [docs/HANDOFF.md](docs/HANDOFF.md).
+
+## Project status & roadmap
+
+**Shipped in v0.1.0:** the grid-select overlay, quadrant/thirds/sixths presets,
+move-within-grid, send-to-next-display, three switchable per-display profiles,
+onboarding + preferences + login item, and the Homebrew tap — all reviewed and
+tested. Full detail in [docs/HANDOFF.md](docs/HANDOFF.md).
+
+**Next up (highest value first):**
+
+1. **Developer ID signing + notarization** — removes every Gatekeeper/quarantine
+   workaround; needs a paid Apple Developer Program membership.
+2. Revisit two deferred product questions (optional retile-on-cycle; richer
+   span-collision semantics) — both have working defaults today.
+3. Roadmap: saved hotkey-bindable span presets, cross-display cell-by-cell move,
+   a scriptable CLI / URL-scheme surface, and a universal (Intel) binary.
 
 ## License
 
