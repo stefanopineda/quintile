@@ -24,15 +24,26 @@ cask "quintile" do
 
   app "Quintile.app"
 
+  # Homebrew 6 force-quarantines every cask install and no longer offers a
+  # --no-quarantine opt-out, so an unsigned (un-notarized) build is blocked on
+  # first launch ("could not verify free of malware"). Since this is your own
+  # app installed from your own tap, clear the quarantine flag on install so it
+  # launches. A future Developer ID-signed + notarized build makes this moot.
+  postflight do
+    system_command "/usr/bin/xattr",
+                   args: ["-dr", "com.apple.quarantine", "#{appdir}/Quintile.app"]
+  end
+
   caveats <<~EOS
-    Quintile is not yet notarized, so macOS Gatekeeper blocks the first launch
-    ("Apple could not verify Quintile is free of malware"). Clear it once with:
+    Quintile is not yet notarized. This cask clears the Gatekeeper quarantine
+    flag on install so it launches. If macOS still blocks it (or you downloaded
+    the app manually), clear it yourself once:
 
       xattr -dr com.apple.quarantine /Applications/Quintile.app
 
-    (or reinstall with `--no-quarantine`, or use System Settings →
-    Privacy & Security → Open Anyway). Then grant Accessibility:
+    or use System Settings → Privacy & Security → Open Anyway.
 
+    Then grant Accessibility:
       System Settings → Privacy & Security → Accessibility → enable Quintile
   EOS
 end
