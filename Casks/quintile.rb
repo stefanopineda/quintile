@@ -12,8 +12,8 @@
 # `xattr -dr com.apple.quarantine "$(brew --caskroom)/../../Applications/Quintile.app"`,
 # or use System Settings > Privacy & Security > Open Anyway. See caveats.
 cask "quintile" do
-  version "0.1.2"
-  sha256 "12704cb198dccab738dadea8f69b68c8b30ebbafeaf1ce82edd3210553477a38"
+  version "0.1.3"
+  sha256 "40b3e7d16f75b3559cd5409dd05e3af8be63b4ce0eb831c49d9ce5e7c36f01b9"
 
   url "https://github.com/stefanopineda/quintile/releases/download/v#{version}/Quintile.app.zip"
   name "Quintile"

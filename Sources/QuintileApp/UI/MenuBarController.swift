@@ -17,6 +17,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     var onCycleProfile: (() -> Void)?
     var onGridSelect: (() -> Void)?
     var onShortcuts: (() -> Void)?
+    /// One-glance keyboard map (post-grant coach / re-open anytime).
+    var onQuickStart: (() -> Void)?
     var onPreferences: (() -> Void)?
     var onGrantAccessibility: (() -> Void)?
     /// Clean uninstall: quit, remove cask/app, reset Accessibility.
@@ -107,6 +109,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(actionItem("Grid Select", #selector(gridSelectTapped),
                                 key: "g", modifiers: [.control, .option]))
         menu.addItem(.separator())
+        menu.addItem(actionItem("Quick Start…", #selector(quickStartTapped)))
         menu.addItem(actionItem("Shortcuts…", #selector(shortcutsTapped)))
         menu.addItem(actionItem("Preferences…", #selector(preferencesTapped), key: ","))
         if permissionState != .granted {
@@ -140,6 +143,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func cycleTapped() { onCycleProfile?() }
     @objc private func gridSelectTapped() { onGridSelect?() }
+    @objc private func quickStartTapped() { onQuickStart?() }
     @objc private func shortcutsTapped() { onShortcuts?() }
     @objc private func preferencesTapped() { onPreferences?() }
     @objc private func grantTapped() { onGrantAccessibility?() }

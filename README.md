@@ -10,7 +10,7 @@ Quintile is free, MIT-licensed, and built on the public Accessibility API
 only: no SIP disabling, no scripting-addition injection, no private
 frameworks. It survives macOS updates the same way Rectangle and AeroSpace do.
 
-**Status:** v0.1.2 released · macOS 14+ · Apple Silicon · 128 tests passing ·
+**Status:** v0.1.3 released · macOS 14+ · Apple Silicon · 128 tests passing ·
 unsigned build ([details](#a-note-on-the-unsigned-build)). See
 [docs/HANDOFF.md](docs/HANDOFF.md) for the full build log, decisions, and roadmap.
 
@@ -104,7 +104,9 @@ one-time permission grant:
    permission prompt.
 2. Open **System Settings → Privacy & Security → Accessibility** (the
    onboarding window's button takes you straight there).
-3. Enable **Quintile** in the list.
+3. Enable **Quintile** in the list — the window flips to a one-glance
+   keyboard map (**Hold ⌃⌥, then…**). Reopen it anytime: menu bar →
+   **Quick Start…**.
 
 The menu-bar icon shows `⊞!` until permission is granted. That's the only
 permission Quintile ever asks for — no Screen Recording, no network.
@@ -124,8 +126,10 @@ with a key label in every cell:
 
 ## Shortcuts
 
-All shortcuts use the `⌃⌥` (Control+Option) leader. The full list also lives
-in the app: **menu bar → Shortcuts…**
+All shortcuts use the `⌃⌥` (Control+Option) leader. After you grant
+Accessibility, Quintile shows a one-glance map of these chords — reopen it
+anytime with **menu bar → Quick Start…**. The full list also lives under
+**menu bar → Shortcuts…**.
 
 | Action | Shortcut |
 |--------|----------|

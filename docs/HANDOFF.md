@@ -180,7 +180,7 @@ working defaults, but merit revisiting with real usage:
 
 ### Priority 4 — Polish
 - Live-reload `GridProfileStore` on external file edits.
-- In-overlay static help legend for first-time users.
+- ~~In-overlay static help legend for first-time users.~~ **Done in spirit (v0.1.3):** post-grant Quick Start cheat sheet + menu re-open; grid overlay already has an in-session hint bar.
 - Localization of onboarding/README copy.
 
 ---

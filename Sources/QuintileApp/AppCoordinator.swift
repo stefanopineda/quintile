@@ -526,6 +526,7 @@ final class AppCoordinator: NSObject {
         menuBar.onCycleProfile = { [weak self] in self?.cycleProfile() }
         menuBar.onGridSelect = { [weak self] in self?.beginGridSelect() }
         menuBar.onShortcuts = { [weak self] in self?.showPreferences(tab: .shortcuts) }
+        menuBar.onQuickStart = { [weak self] in self?.onboarding.showQuickStart() }
         menuBar.onPreferences = { [weak self] in self?.showPreferences(tab: .standard) }
         menuBar.onGrantAccessibility = { [weak self] in self?.showOnboarding() }
         menuBar.onUninstall = { [weak self] in self?.confirmAndUninstall() }
