@@ -151,8 +151,8 @@ final class OnboardingWindowController: NSObject {
             titleLabel.stringValue = "Quintile needs Accessibility permission"
             bodyLabel.stringValue = """
             Quintile needs Accessibility permission to move and resize windows. \
-            macOS will ask for your approval — Quintile never reads your screen \
-            contents, it only positions windows.
+            System Settings will open straight to the Accessibility toggle — \
+            Quintile never reads your screen contents, it only positions windows.
             """
             actionButton.title = "Grant Access"
             window.title = "Welcome to Quintile"

@@ -12,8 +12,8 @@
 # `xattr -dr com.apple.quarantine "$(brew --caskroom)/../../Applications/Quintile.app"`,
 # or use System Settings > Privacy & Security > Open Anyway. See caveats.
 cask "quintile" do
-  version "0.1.4"
-  sha256 "040c5c064ddccf2fb658de3232b6a75b95c1fc5b3851057057a128e1c99380d6"
+  version "0.1.5"
+  sha256 "49669299ab4530f727a326214a1d1e19e1ba0dfd2dc3d294c23475df179a6dd4"
 
   url "https://github.com/stefanopineda/quintile/releases/download/v#{version}/Quintile.app.zip"
   name "Quintile"
@@ -32,6 +32,13 @@ cask "quintile" do
   postflight do
     system_command "/usr/bin/xattr",
                    args: ["-dr", "com.apple.quarantine", "#{appdir}/Quintile.app"]
+    # Launch straight away: on first run Quintile itself opens System
+    # Settings directly to the Accessibility toggle (see AppCoordinator),
+    # so install → running with the right pane open needs zero manual steps
+    # beyond flipping the switch (macOS doesn't allow that part to be
+    # automated — no app may toggle another app's TCC entry for itself).
+    system_command "/usr/bin/open",
+                   args: ["-a", "#{appdir}/Quintile.app"]
   end
 
   caveats <<~EOS
@@ -43,7 +50,8 @@ cask "quintile" do
       xattr -dr com.apple.quarantine /Applications/Quintile.app
       (or System Settings → Privacy & Security → Open Anyway)
 
-    One remaining manual step — grant Accessibility so hotkeys work:
-      System Settings → Privacy & Security → Accessibility → enable Quintile
+    Quintile has launched and opened System Settings → Privacy & Security →
+    Accessibility for you. One manual step remains — macOS requires a real
+    click, so flip the Quintile toggle on to enable hotkeys.
   EOS
 end

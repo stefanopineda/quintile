@@ -10,7 +10,7 @@ Quintile is free, MIT-licensed, and built on the public Accessibility API
 only: no SIP disabling, no scripting-addition injection, no private
 frameworks. It survives macOS updates the same way Rectangle and AeroSpace do.
 
-**Status:** v0.1.4 released · macOS 14+ · Apple Silicon · 130 tests passing ·
+**Status:** v0.1.5 released · macOS 14+ · Apple Silicon · 130 tests passing ·
 unsigned build ([details](#a-note-on-the-unsigned-build)). See
 [docs/HANDOFF.md](docs/HANDOFF.md) for the full build log, decisions, and roadmap.
 
@@ -100,11 +100,11 @@ notarized build ships.
 Quintile moves windows through the macOS Accessibility API, which requires a
 one-time permission grant:
 
-1. Launch Quintile — the onboarding window appears and macOS shows the
-   permission prompt.
-2. Open **System Settings → Privacy & Security → Accessibility** (the
-   onboarding window's button takes you straight there).
-3. Enable **Quintile** in the list — the window flips to a one-glance
+1. Launch Quintile (installing via `brew` does this for you automatically) —
+   the onboarding window appears and **System Settings → Privacy & Security →
+   Accessibility** opens straight to the right pane, no extra clicks needed
+   to get there.
+2. Enable **Quintile** in the list — the window flips to a one-glance
    keyboard map (**Hold ⌃⌥, then…**). Reopen it anytime: menu bar →
    **Quick Start…**.
 

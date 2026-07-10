@@ -152,6 +152,13 @@ final class AppCoordinator: NSObject {
 
         if permissionManager.state != .granted {
             showOnboarding()
+            if permissionManager.state == .notDetermined {
+                // Land the user directly on the Accessibility toggle instead
+                // of relying on them to notice and click through the OS's
+                // own small permission alert — mirrors the first-run flow of
+                // Rectangle/Magnet/etc.
+                NSWorkspace.shared.open(AccessibilityPermissionManager.accessibilitySettingsDeepLink)
+            }
         }
 
         if let storeFallbackError {
@@ -611,6 +618,10 @@ final class AppCoordinator: NSObject {
             guard let self else { return }
             self.permissionManager.checkOnLaunch() // prompts at most once/launch
             self.syncPermissionState()
+            // Always jump straight to the Accessibility pane — checkOnLaunch
+            // only shows the OS's own prompt once per launch, so a repeat
+            // click here still needs to get the user back to the toggle.
+            NSWorkspace.shared.open(AccessibilityPermissionManager.accessibilitySettingsDeepLink)
         }
         controller.onOpenSettings = {
             NSWorkspace.shared.open(AccessibilityPermissionManager.accessibilitySettingsDeepLink)
