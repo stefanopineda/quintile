@@ -194,4 +194,41 @@ func axControllerTests(_ t: TestHarness) {
             }
         }
     }
+
+    // Pure focused → main → first-window policy (Chromium-class apps leave
+    // kAXFocusedWindow empty). No AX trust required.
+    t.suite("LiveAXBackend.selectPlaceableWindow") { t in
+        t.test("prefers focused when present") {
+            let focused = FakeWindow(frame: .zero)
+            let main = FakeWindow(frame: .zero)
+            let other = FakeWindow(frame: .zero)
+            let chosen = LiveAXBackend.selectPlaceableWindow(
+                focused: focused, main: main, standardWindows: [other])
+            t.expect(chosen?.isSame(as: focused) == true)
+        }
+
+        t.test("falls back to main when focused is nil (Chrome/Edge failure mode)") {
+            let main = FakeWindow(frame: .zero)
+            let other = FakeWindow(frame: .zero)
+            let chosen = LiveAXBackend.selectPlaceableWindow(
+                focused: nil as FakeWindow?, main: main, standardWindows: [other])
+            t.expect(chosen?.isSame(as: main) == true)
+        }
+
+        t.test("falls back to first standard window when focused and main are nil") {
+            let first = FakeWindow(frame: .zero)
+            let second = FakeWindow(frame: .zero)
+            let chosen = LiveAXBackend.selectPlaceableWindow(
+                focused: nil as FakeWindow?, main: nil as FakeWindow?,
+                standardWindows: [first, second])
+            t.expect(chosen?.isSame(as: first) == true)
+        }
+
+        t.test("returns nil when the app has no placeable window") {
+            let chosen = LiveAXBackend.selectPlaceableWindow(
+                focused: nil as FakeWindow?, main: nil as FakeWindow?,
+                standardWindows: [FakeWindow]())
+            t.expect(chosen == nil)
+        }
+    }
 }

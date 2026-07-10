@@ -97,8 +97,10 @@ public struct DisplayDescriptor: Equatable {
 /// mouse locations, panel placement) goes through the shared `QuartzCocoa`
 /// helper — never a hand-rolled flip.
 public protocol AXBackend {
-    /// The focused window of the frontmost application, or nil when no app
-    /// has a focused window (e.g. Finder desktop focus). Never a crash.
+    /// The placeable window of the frontmost application, or nil when none
+    /// exists (e.g. Finder desktop with no open windows). Never a crash.
+    /// Live backends may fall back from `kAXFocusedWindow` to main/first
+    /// standard window for Chromium-class apps that leave focused empty.
     func focusedWindow() throws -> AXWindowHandle?
 
     /// All on-screen standard (non-minimized) windows across regular apps.

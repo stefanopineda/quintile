@@ -26,8 +26,10 @@ public final class AXWindowController {
 
     // MARK: - Focus & frames
 
-    /// The focused window, or nil when no app has one (e.g. Finder desktop
-    /// focus). Callers treat nil as "nothing to place", not an error.
+    /// The placeable window of the frontmost app, or nil when none exists
+    /// (e.g. Finder desktop with no open windows). Callers treat nil as
+    /// "nothing to place", not an error. See `LiveAXBackend.focusedWindow`
+    /// for Chromium-hardened focused → main → first-window resolution.
     public func focusedWindow() throws -> AXWindowHandle? {
         try backend.focusedWindow()
     }

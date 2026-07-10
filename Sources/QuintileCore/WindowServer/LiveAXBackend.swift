@@ -22,12 +22,17 @@ import CoreGraphics
 ///    read-back must match in global Quartz coordinates (origin relative to
 ///    the primary display's top-left; negative/large offsets are expected).
 /// 4. Minimize the window; verify it disappears from `windows()`.
-/// 5. Click the desktop (Finder, no windows); verify `focusedWindow()` is nil.
+/// 5. Click the desktop with no Finder windows open; verify `focusedWindow()`
+///    is nil. (Open Finder windows may still be selected via main/windows
+///    fallback — same policy as Rectangle.)
 /// 6. Try `setFrame` on an Electron app (e.g. VS Code) sized below its minimum
 ///    size; verify `.writeRejected` is thrown by `AXWindowController.setFrame`
 ///    rather than a silent no-op.
 /// 7. `kill -STOP` a GUI app, then enumerate: `windows()` must return within
 ///    ~0.3 s per hung app (messaging timeout), not stall for ~6 s.
+/// 8. Chromium browsers (Chrome, Edge, Brave, …): with a normal browser window
+///    frontmost, `focusedWindow()` must return a placeable window even when
+///    `kAXFocusedWindow` is empty — via `kAXMainWindow` / first standard window.
 public final class LiveAXBackend: AXBackend {
 
     /// Messaging timeout (seconds) applied to every element we talk to, so a
@@ -44,20 +49,41 @@ public final class LiveAXBackend: AXBackend {
 
     // MARK: - AXBackend
 
+    /// Placeable window of the frontmost app.
+    ///
+    /// Chromium-class apps (Chrome, Edge, Brave, …) often leave
+    /// `kAXFocusedWindow` empty even with a real browser window frontmost —
+    /// multi-process + lazy accessibility. Strict focused-window-only lookup
+    /// then yields "No window to place" for every hotkey. Resolution order
+    /// (matches mature AX window managers such as Rectangle):
+    ///
+    /// 1. `NSWorkspace.frontmostApplication` (stable browser process), else
+    ///    system-wide `kAXFocusedApplication`
+    /// 2. `kAXFocusedWindow` when present
+    /// 3. `kAXMainWindow` when present
+    /// 4. First standard non-minimized window from `kAXWindows`
     public func focusedWindow() throws -> AXWindowHandle? {
         try ensurePermitted()
-        let systemWide = AXUIElementCreateSystemWide()
-        AXUIElementSetMessagingTimeout(systemWide, Self.messagingTimeout)
 
-        guard let appElement = try copyElement(systemWide, attribute: kAXFocusedApplicationAttribute) else {
-            return nil // no frontmost app with AX focus
+        for appElement in frontmostApplicationElements() {
+            if let window = try resolvePlaceableWindow(in: appElement) {
+                return LiveAXWindowHandle(element: window)
+            }
         }
-        AXUIElementSetMessagingTimeout(appElement, Self.messagingTimeout)
+        return nil
+    }
 
-        guard let windowElement = try copyElement(appElement, attribute: kAXFocusedWindowAttribute) else {
-            return nil // frontmost app has no focused window (e.g. Finder desktop)
-        }
-        return LiveAXWindowHandle(element: windowElement)
+    /// Pure preference among already-fetched candidates. Public so the
+    /// Chromium-fallback policy is unit-testable without Accessibility trust.
+    /// First non-nil of: focused → main → first standard window.
+    public static func selectPlaceableWindow<W>(
+        focused: W?,
+        main: W?,
+        standardWindows: [W]
+    ) -> W? {
+        if let focused { return focused }
+        if let main { return main }
+        return standardWindows.first
     }
 
     public func windows() throws -> [AXWindowHandle] {
@@ -149,6 +175,83 @@ public final class LiveAXBackend: AXBackend {
         }
     }
 
+    // MARK: - Focused-window resolution (Chromium-hardened)
+
+    /// Candidate application elements: workspace frontmost first (Chromium
+    /// browser process), then system-wide AX focused application if different.
+    private func frontmostApplicationElements() -> [AXUIElement] {
+        var elements: [AXUIElement] = []
+        var seenPIDs = Set<pid_t>()
+
+        if let app = NSWorkspace.shared.frontmostApplication,
+           app.activationPolicy == .regular {
+            let el = AXUIElementCreateApplication(app.processIdentifier)
+            AXUIElementSetMessagingTimeout(el, Self.messagingTimeout)
+            elements.append(el)
+            seenPIDs.insert(app.processIdentifier)
+        }
+
+        // Secondary: system-wide AX focus can differ from NSWorkspace for some
+        // multi-process / AX-focus edge cases. Soft-fail — missing AX focus is
+        // not an error when workspace frontmost already covered it.
+        let systemWide = AXUIElementCreateSystemWide()
+        AXUIElementSetMessagingTimeout(systemWide, Self.messagingTimeout)
+        if let appElement = try? copyElementSoft(systemWide,
+                                                 attribute: kAXFocusedApplicationAttribute as String) {
+            var pid: pid_t = 0
+            if AXUIElementGetPid(appElement, &pid) == .success {
+                guard !seenPIDs.contains(pid) else { return elements }
+                AXUIElementSetMessagingTimeout(appElement, Self.messagingTimeout)
+                elements.append(appElement)
+            } else if elements.isEmpty {
+                AXUIElementSetMessagingTimeout(appElement, Self.messagingTimeout)
+                elements.append(appElement)
+            }
+        }
+        return elements
+    }
+
+    /// focused → main → first standard non-minimized window for one app.
+    private func resolvePlaceableWindow(in appElement: AXUIElement) throws -> AXUIElement? {
+        AXUIElementSetMessagingTimeout(appElement, Self.messagingTimeout)
+
+        // Soft reads: Chromium returns `.noValue` (or rarely
+        // `.attributeUnsupported`) for focused/main while still exposing a
+        // usable `kAXWindows` list. Hard errors still throw.
+        let focused = try copyElementSoft(appElement,
+                                          attribute: kAXFocusedWindowAttribute as String)
+        let main = try copyElementSoft(appElement,
+                                       attribute: kAXMainWindowAttribute as String)
+        let standardWindows = try standardNonMinimizedWindows(of: appElement)
+
+        // Preference is pure (unit-tested); focused/main are used as-is when
+        // present (same as Rectangle). The windows-list fallback is filtered
+        // to standard non-minimized only.
+        return Self.selectPlaceableWindow(focused: focused,
+                                          main: main,
+                                          standardWindows: standardWindows)
+    }
+
+    private func standardNonMinimizedWindows(of appElement: AXUIElement) throws -> [AXUIElement] {
+        var windowsRef: CFTypeRef?
+        let error = AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsRef)
+        if error == .noValue || error == .attributeUnsupported {
+            return []
+        }
+        if let mapped = Self.mapAXError(error) { throw mapped }
+        guard let items = windowsRef as? [AnyObject] else { return [] }
+
+        var result: [AXUIElement] = []
+        for item in items {
+            guard CFGetTypeID(item) == AXUIElementGetTypeID() else { continue }
+            let element = item as! AXUIElement
+            if isStandardNonMinimizedWindow(element) {
+                result.append(element)
+            }
+        }
+        return result
+    }
+
     // MARK: - Window filtering
 
     private func isStandardNonMinimizedWindow(_ element: AXUIElement) -> Bool {
@@ -193,6 +296,17 @@ public final class LiveAXBackend: AXBackend {
         var ref: CFTypeRef?
         let error = AXUIElementCopyAttributeValue(element, attribute as CFString, &ref)
         if error == .noValue { return nil }
+        if let mapped = Self.mapAXError(error) { throw mapped }
+        guard let value = ref, CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
+        return (value as! AXUIElement)
+    }
+
+    /// Like `copyElement`, but treats `.attributeUnsupported` as a soft miss
+    /// so Chromium-style partial AX trees fall through to main/windows.
+    private func copyElementSoft(_ element: AXUIElement, attribute: String) throws -> AXUIElement? {
+        var ref: CFTypeRef?
+        let error = AXUIElementCopyAttributeValue(element, attribute as CFString, &ref)
+        if error == .noValue || error == .attributeUnsupported { return nil }
         if let mapped = Self.mapAXError(error) { throw mapped }
         guard let value = ref, CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
         return (value as! AXUIElement)
