@@ -51,16 +51,45 @@ func permissionTests(_ t: TestHarness) {
             t.expectEqual(grantedFires, 1, "handler fires once on the grant transition")
         }
 
-        t.test("prompt dismissal becomes denied once a later refresh still reports untrusted") {
+        t.test("one follow-up refresh after the prompt stays notDetermined (grace window, not an instant denial)") {
             let fake = FakeTrustChecker()
             let manager = AccessibilityPermissionManager(trustChecker: fake)
 
             manager.checkOnLaunch() // prompting check itself is not a denial signal
             t.expectEqual(manager.state, .notDetermined)
 
-            manager.refresh() // still untrusted after the prompt → definitive denial
+            manager.refresh() // still untrusted right after the prompt — user hasn't had time to act
+            t.expectEqual(manager.state, .notDetermined, "a single follow-up check must not read as a decline")
+            t.expectEqual(fake.promptCallCount, 1, "grace-window checks never re-prompt")
+        }
+
+        t.test("denied only once the grace window of consecutive untrusted refreshes is exhausted") {
+            let fake = FakeTrustChecker()
+            let manager = AccessibilityPermissionManager(trustChecker: fake)
+
+            manager.checkOnLaunch()
+            for _ in 0..<(AccessibilityPermissionManager.deniedGraceChecks - 1) {
+                manager.refresh()
+                t.expectEqual(manager.state, .notDetermined, "still inside the grace window")
+            }
+            manager.refresh() // grace window exhausted with no grant → definitive denial
             t.expectEqual(manager.state, .denied)
             t.expectEqual(fake.promptCallCount, 1, "denial detection never re-prompts")
+        }
+
+        t.test("granting inside the grace window still transitions cleanly to granted") {
+            let fake = FakeTrustChecker()
+            let manager = AccessibilityPermissionManager(trustChecker: fake)
+            var grantedFires = 0
+            manager.onGrantedTransition { grantedFires += 1 }
+
+            manager.checkOnLaunch()
+            manager.refresh() // one untrusted follow-up, still inside the grace window
+
+            fake.trusted = true // user finishes granting in System Settings
+            manager.refresh()
+            t.expectEqual(manager.state, .granted)
+            t.expectEqual(grantedFires, 1)
         }
 
         t.test("granted → revoked when trust is withdrawn, distinct from notDetermined") {

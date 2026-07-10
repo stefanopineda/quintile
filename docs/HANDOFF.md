@@ -181,6 +181,8 @@ working defaults, but merit revisiting with real usage:
 ### Priority 4 — Polish
 - Live-reload `GridProfileStore` on external file edits.
 - ~~In-overlay static help legend for first-time users.~~ **Done in spirit (v0.1.3):** post-grant Quick Start cheat sheet + menu re-open; grid overlay already has an in-session hint bar.
+- ~~Onboarding falsely reports "Permission was declined" seconds after granting.~~ **Fixed (v0.1.4):** the permission state machine flipped to `.denied` after a single untrusted follow-up check — 3s after the prompt, nowhere near enough time to actually navigate System Settings and grant it. Now requires `deniedGraceChecks` (10, ~30s at the app's 3s poll cadence) consecutive untrusted checks before concluding a real decline. See `AccessibilityPermissionManager.swift`.
+- ~~Cask caveats implied the quarantine-clear command was a required manual step.~~ **Fixed (v0.1.4):** caveats now lead with "already handled automatically" and demote the `xattr` command to an explicit fallback-only note.
 - Localization of onboarding/README copy.
 
 ---

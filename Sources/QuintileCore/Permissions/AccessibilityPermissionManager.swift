@@ -43,9 +43,13 @@ public struct SystemAccessibilityTrustChecker: AccessibilityTrustChecking {
 /// State machine (see the plan's "Permission & login-item flow" diagram):
 /// - `notDetermined` → `granted` when a check comes back trusted.
 /// - `notDetermined` → `denied` only after a definitive denial signal: the OS
-///   prompt was shown this launch (`checkOnLaunch()`) and a *later* `refresh()`
-///   still reports untrusted. Prompt dismissal has no callback, so
-///   still-not-granted-after-prompt is modeled as denial.
+///   prompt was shown this launch (`checkOnLaunch()`) and `deniedGraceChecks`
+///   *consecutive later* `refresh()` calls still report untrusted. Prompt
+///   dismissal has no callback and `AXIsProcessTrustedWithOptions` returns
+///   immediately without waiting for the user, so a single follow-up check is
+///   not a denial signal — it fires long before a human can plausibly have
+///   opened System Settings, found Accessibility, and toggled the app. The
+///   grace window absorbs that navigation time before concluding "declined".
 /// - `granted` → `revoked` when a check comes back untrusted after a grant.
 /// - `denied`/`revoked` → `granted` when the user (re-)grants via the
 ///   System Settings deep link.
@@ -58,11 +62,21 @@ public final class AccessibilityPermissionManager {
         URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
     }
 
+    /// Consecutive untrusted `refresh()` calls required after the launch
+    /// prompt before concluding the user actually declined, rather than
+    /// simply not having gotten to System Settings yet. The app layer polls
+    /// on a 3s cadence (`AppCoordinator`'s `permissionTimer`), so this is
+    /// roughly a 30s grace window — enough to open System Settings and
+    /// toggle the app, short enough to still surface a genuine decline.
+    public static let deniedGraceChecks = 10
+
     private let trustChecker: AccessibilityTrustChecking
     private var hasPromptedThisLaunch = false
-    /// True once the initial prompting check has returned, so the *next*
-    /// untrusted result counts as a denial rather than "user still deciding".
+    /// True once the initial prompting check has returned, so subsequent
+    /// untrusted results start counting toward the denial grace window.
     private var promptCheckCompleted = false
+    /// Consecutive untrusted checks since `promptCheckCompleted` became true.
+    private var untrustedChecksAfterPrompt = 0
     private var grantedHandlers: [() -> Void] = []
 
     public init(trustChecker: AccessibilityTrustChecking = SystemAccessibilityTrustChecker()) {
@@ -101,6 +115,7 @@ public final class AccessibilityPermissionManager {
         if trusted {
             guard state != .granted else { return }
             state = .granted
+            untrustedChecksAfterPrompt = 0
             for handler in grantedHandlers { handler() }
             return
         }
@@ -109,11 +124,16 @@ public final class AccessibilityPermissionManager {
         case .granted:
             state = .revoked
         case .notDetermined where hasPromptedThisLaunch:
-            // Only a check *after* the prompting one is a denial signal: the
-            // prompting check itself always reports untrusted on a fresh
+            // The prompting check itself always reports untrusted on a fresh
             // install because the user hasn't had a chance to respond yet.
+            // Checks after that only count as a denial once the grace window
+            // of consecutive untrusted checks is exhausted, giving the user
+            // time to actually navigate to System Settings and grant it.
             if promptCheckCompleted {
-                state = .denied
+                untrustedChecksAfterPrompt += 1
+                if untrustedChecksAfterPrompt >= Self.deniedGraceChecks {
+                    state = .denied
+                }
             } else {
                 promptCheckCompleted = true
             }

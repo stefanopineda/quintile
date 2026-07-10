@@ -112,8 +112,9 @@ func appIntegrationTests(_ t: TestHarness) {
             t.expectEqual(permissions.state, .notDetermined)
             t.expectEqual(service.registerCalls, 0, "no registration while notDetermined")
 
-            permissions.refresh() // still untrusted after the prompt → denied
-            permissions.refresh()
+            for _ in 0..<AccessibilityPermissionManager.deniedGraceChecks {
+                permissions.refresh() // still untrusted through the grace window → denied
+            }
             t.expectEqual(permissions.state, .denied)
             t.expectEqual(service.registerCalls, 0, "no registration while denied")
         }

@@ -12,8 +12,8 @@
 # `xattr -dr com.apple.quarantine "$(brew --caskroom)/../../Applications/Quintile.app"`,
 # or use System Settings > Privacy & Security > Open Anyway. See caveats.
 cask "quintile" do
-  version "0.1.3"
-  sha256 "40b3e7d16f75b3559cd5409dd05e3af8be63b4ce0eb831c49d9ce5e7c36f01b9"
+  version "0.1.4"
+  sha256 "040c5c064ddccf2fb658de3232b6a75b95c1fc5b3851057057a128e1c99380d6"
 
   url "https://github.com/stefanopineda/quintile/releases/download/v#{version}/Quintile.app.zip"
   name "Quintile"
@@ -35,15 +35,15 @@ cask "quintile" do
   end
 
   caveats <<~EOS
-    Quintile is not yet notarized. This cask clears the Gatekeeper quarantine
-    flag on install so it launches. If macOS still blocks it (or you downloaded
-    the app manually), clear it yourself once:
+    Quintile is unsigned and not yet notarized, but this cask already cleared
+    the Gatekeeper quarantine flag for you — no action needed to launch it.
 
+    Fallback (only if macOS still blocks it, or you downloaded the .zip
+    directly instead of using brew):
       xattr -dr com.apple.quarantine /Applications/Quintile.app
+      (or System Settings → Privacy & Security → Open Anyway)
 
-    or use System Settings → Privacy & Security → Open Anyway.
-
-    Then grant Accessibility:
+    One remaining manual step — grant Accessibility so hotkeys work:
       System Settings → Privacy & Security → Accessibility → enable Quintile
   EOS
 end
