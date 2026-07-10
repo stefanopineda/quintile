@@ -19,6 +19,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     var onShortcuts: (() -> Void)?
     var onPreferences: (() -> Void)?
     var onGrantAccessibility: (() -> Void)?
+    /// Clean uninstall: quit, remove cask/app, reset Accessibility.
+    var onUninstall: (() -> Void)?
 
     // MARK: - State
 
@@ -111,6 +113,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             menu.addItem(actionItem("Grant Accessibility…", #selector(grantTapped)))
         }
         menu.addItem(.separator())
+        menu.addItem(actionItem("Uninstall Quintile…", #selector(uninstallTapped)))
         let quit = NSMenuItem(title: "Quit Quintile",
                               action: #selector(NSApplication.terminate(_:)),
                               keyEquivalent: "q")
@@ -140,4 +143,5 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func shortcutsTapped() { onShortcuts?() }
     @objc private func preferencesTapped() { onPreferences?() }
     @objc private func grantTapped() { onGrantAccessibility?() }
+    @objc private func uninstallTapped() { onUninstall?() }
 }

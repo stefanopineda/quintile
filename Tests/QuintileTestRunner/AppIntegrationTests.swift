@@ -164,6 +164,58 @@ func appIntegrationTests(_ t: TestHarness) {
             t.expect(!service.isRegistered, "failed registration leaves it unregistered")
             t.expect(manager.lastError != nil, "failure surfaced on lastError")
         }
+
+        t.test("unregisterIfNeeded is a no-op when not registered") {
+            let service = FakeLoginItemService()
+            let manager = LoginItemManager(service: service)
+            manager.unregisterIfNeeded()
+            t.expect(!service.isRegistered)
+            t.expect(manager.lastError == nil)
+        }
+
+        t.test("unregisterIfNeeded clears a registered login item") {
+            let service = FakeLoginItemService()
+            let manager = LoginItemManager(service: service)
+            manager.registerAfterPermissionGranted()
+            t.expect(service.isRegistered)
+            manager.unregisterIfNeeded()
+            t.expect(!service.isRegistered)
+            t.expect(manager.lastError == nil)
+        }
+    }
+
+    t.suite("UninstallScript clean uninstall") { t in
+        t.test("shell source runs brew cask uninstall and tccutil reset") {
+            let source = UninstallScript.shellSource()
+            t.expect(source.contains("brew uninstall --cask"),
+                     "must uninstall Homebrew cask")
+            t.expect(source.contains(UninstallScript.caskName),
+                     "must target the quintile cask")
+            t.expect(source.contains("tccutil reset Accessibility"),
+                     "must reset Accessibility")
+            t.expect(source.contains(UninstallScript.bundleIdentifier),
+                     "must reset the Quintile bundle id")
+            t.expect(source.contains("/Applications/Quintile.app"),
+                     "must remove leftover app bundle")
+            t.expect(source.contains("pgrep -x"),
+                     "must wait for process exit before deleting")
+            t.expect(!source.contains("Application Support"),
+                     "must not delete user profiles")
+        }
+
+        t.test("writeTemporaryScript produces an executable shell file") {
+            let url = try UninstallScript.writeTemporaryScript()
+            defer { try? FileManager.default.removeItem(at: url) }
+            t.expect(FileManager.default.fileExists(atPath: url.path))
+            let attrs = try FileManager.default.attributesOfItem(atPath: url.path)
+            let perms = attrs[.posixPermissions] as? NSNumber
+            t.expect(perms != nil, "posix permissions set")
+            // Owner-executable bit (0o100).
+            t.expect((perms!.intValue & 0o100) != 0, "script must be executable")
+            let body = try String(contentsOf: url, encoding: .utf8)
+            t.expect(body.hasPrefix("#!/bin/bash"))
+            t.expect(body.contains("tccutil reset Accessibility"))
+        }
     }
 
     t.suite("HotkeyManager modal interceptor") { t in

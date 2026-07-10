@@ -10,7 +10,7 @@ Quintile is free, MIT-licensed, and built on the public Accessibility API
 only: no SIP disabling, no scripting-addition injection, no private
 frameworks. It survives macOS updates the same way Rectangle and AeroSpace do.
 
-**Status:** v0.1.1 released · macOS 14+ · Apple Silicon · 124 tests passing ·
+**Status:** v0.1.2 released · macOS 14+ · Apple Silicon · 128 tests passing ·
 unsigned build ([details](#a-note-on-the-unsigned-build)). See
 [docs/HANDOFF.md](docs/HANDOFF.md) for the full build log, decisions, and roadmap.
 

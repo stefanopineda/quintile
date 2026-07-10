@@ -69,4 +69,18 @@ public final class LoginItemManager {
                 Data("Quintile: login-item registration failed: \(error)\n".utf8))
         }
     }
+
+    /// Best-effort login-item removal for clean uninstall. No-op when not
+    /// registered; failures are reported on `lastError` and never crash.
+    public func unregisterIfNeeded() {
+        guard service.isRegistered else { return }
+        do {
+            try service.unregister()
+            lastError = nil
+        } catch {
+            lastError = error
+            FileHandle.standardError.write(
+                Data("Quintile: login-item unregistration failed: \(error)\n".utf8))
+        }
+    }
 }

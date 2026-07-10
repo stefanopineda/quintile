@@ -528,6 +528,70 @@ final class AppCoordinator: NSObject {
         menuBar.onShortcuts = { [weak self] in self?.showPreferences(tab: .shortcuts) }
         menuBar.onPreferences = { [weak self] in self?.showPreferences(tab: .standard) }
         menuBar.onGrantAccessibility = { [weak self] in self?.showOnboarding() }
+        menuBar.onUninstall = { [weak self] in self?.confirmAndUninstall() }
+    }
+
+    // MARK: - Clean uninstall
+
+    /// Menu-bar "Uninstall Quintile…": confirm, unregister login item, spawn
+    /// the post-quit helper (brew cask + app removal + Accessibility reset),
+    /// then terminate. Profiles under Application Support are kept.
+    private func confirmAndUninstall() {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Uninstall Quintile?"
+        alert.informativeText = """
+            This will:
+            • Quit Quintile
+            • Remove the app (Homebrew cask when installed that way)
+            • Reset Accessibility permission for Quintile
+
+            Your grid profiles in Application Support are left alone so a \
+            reinstall can pick them up again.
+            """
+        alert.addButton(withTitle: "Uninstall")
+        alert.addButton(withTitle: "Cancel")
+        // Destructive first button styling on supported macOS.
+        if #available(macOS 11.0, *) {
+            alert.buttons.first?.hasDestructiveAction = true
+        }
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        performUninstall()
+    }
+
+    private func performUninstall() {
+        // Stop relaunching at login before the bundle is deleted.
+        loginItemManager.unregisterIfNeeded()
+
+        do {
+            let scriptURL = try UninstallScript.writeTemporaryScript()
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/bash")
+            process.arguments = [scriptURL.path]
+            // Detach so the helper outlives this process.
+            process.standardInput = FileHandle.nullDevice
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            try process.run()
+        } catch {
+            let alert = NSAlert()
+            alert.alertStyle = .critical
+            alert.messageText = "Couldn't start uninstall"
+            alert.informativeText = """
+                Quintile couldn't launch the uninstall helper: \
+                \(error.localizedDescription)
+
+                You can still remove it manually:
+                brew uninstall --cask quintile
+                tccutil reset Accessibility \(UninstallScript.bundleIdentifier)
+                """
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+            return
+        }
+
+        NSApp.terminate(nil)
     }
 
     private func displaySummaries() -> [String] {
