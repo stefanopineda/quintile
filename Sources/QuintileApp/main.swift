@@ -14,6 +14,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.coordinator = coordinator
         coordinator.start()
     }
+
+    /// Dockless agent: re-open from Spotlight / `open -a` re-surfaces stuck UI.
+    func applicationShouldHandleReopen(
+        _ sender: NSApplication,
+        hasVisibleWindows flag: Bool
+    ) -> Bool {
+        coordinator?.handleReopen()
+        return true
+    }
 }
 
 let app = NSApplication.shared

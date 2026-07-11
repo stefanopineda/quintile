@@ -20,4 +20,17 @@ cask "quintile" do
     "~/Library/Application Support/Quintile",
     "~/Library/Preferences/com.stefanopineda.quintile.plist",
   ]
+
+  caveats <<~EOS
+    NEXT STEPS
+      1. Open Quintile: Spotlight (⌘Space) → type Quintile → Enter
+         (or open /Applications/Quintile.app)
+      2. Look for the menu bar icon near the clock: ⊞! (needs permission)
+         or ⊞ (ready). There is no Dock icon — that is normal.
+      3. System Settings → Privacy & Security → Accessibility → turn
+         Quintile ON. If it already looks ON, turn OFF then ON again.
+      4. Click a window, hold Control+Option, press [  (left third).
+
+    Full shortcut map later: menu bar ⊞ → Quick Start…
+  EOS
 end

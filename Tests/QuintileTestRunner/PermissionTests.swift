@@ -15,6 +15,13 @@ private final class FakeTrustChecker: AccessibilityTrustChecking {
     }
 }
 
+/// Controllable clock for wall-clock grace tests.
+private final class FakeClock {
+    var date = Date(timeIntervalSince1970: 1_000_000)
+    func advance(_ seconds: TimeInterval) { date = date.addingTimeInterval(seconds) }
+    func now() -> Date { date }
+}
+
 /// U1 test scenarios: permission state machine over a fake trust checker.
 func permissionTests(_ t: TestHarness) {
     t.suite("AccessibilityPermissionManager") { t in
@@ -45,7 +52,7 @@ func permissionTests(_ t: TestHarness) {
             t.expectEqual(manager.state, .notDetermined)
             t.expectEqual(grantedFires, 0)
 
-            fake.trusted = true // user grants in System Settings
+            fake.trusted = true
             manager.refresh()
             t.expectEqual(manager.state, .granted)
             t.expectEqual(grantedFires, 1, "handler fires once on the grant transition")
@@ -55,24 +62,41 @@ func permissionTests(_ t: TestHarness) {
             let fake = FakeTrustChecker()
             let manager = AccessibilityPermissionManager(trustChecker: fake)
 
-            manager.checkOnLaunch() // prompting check itself is not a denial signal
+            manager.checkOnLaunch()
             t.expectEqual(manager.state, .notDetermined)
 
-            manager.refresh() // still untrusted right after the prompt — user hasn't had time to act
+            manager.refresh()
             t.expectEqual(manager.state, .notDetermined, "a single follow-up check must not read as a decline")
             t.expectEqual(fake.promptCallCount, 1, "grace-window checks never re-prompt")
         }
 
-        t.test("denied only once the grace window of consecutive untrusted refreshes is exhausted") {
+        t.test("many fast polls inside 30s wall-clock grace stay notDetermined") {
             let fake = FakeTrustChecker()
-            let manager = AccessibilityPermissionManager(trustChecker: fake)
+            let clock = FakeClock()
+            let manager = AccessibilityPermissionManager(trustChecker: fake, now: clock.now)
 
             manager.checkOnLaunch()
-            for _ in 0..<(AccessibilityPermissionManager.deniedGraceChecks - 1) {
+            // Historical bug: count-based grace + faster poll → false denied.
+            for _ in 0..<50 {
                 manager.refresh()
-                t.expectEqual(manager.state, .notDetermined, "still inside the grace window")
+                t.expectEqual(manager.state, .notDetermined, "still inside wall-clock grace")
             }
-            manager.refresh() // grace window exhausted with no grant → definitive denial
+            clock.advance(29)
+            manager.refresh()
+            t.expectEqual(manager.state, .notDetermined, "29s is still inside grace")
+        }
+
+        t.test("denied only once wall-clock grace is exhausted") {
+            let fake = FakeTrustChecker()
+            let clock = FakeClock()
+            let manager = AccessibilityPermissionManager(trustChecker: fake, now: clock.now)
+
+            manager.checkOnLaunch()
+            manager.refresh() // starts grace deadline
+            t.expectEqual(manager.state, .notDetermined)
+
+            clock.advance(AccessibilityPermissionManager.deniedGraceDuration)
+            manager.refresh()
             t.expectEqual(manager.state, .denied)
             t.expectEqual(fake.promptCallCount, 1, "denial detection never re-prompts")
         }
@@ -84,9 +108,9 @@ func permissionTests(_ t: TestHarness) {
             manager.onGrantedTransition { grantedFires += 1 }
 
             manager.checkOnLaunch()
-            manager.refresh() // one untrusted follow-up, still inside the grace window
+            manager.refresh()
 
-            fake.trusted = true // user finishes granting in System Settings
+            fake.trusted = true
             manager.refresh()
             t.expectEqual(manager.state, .granted)
             t.expectEqual(grantedFires, 1)
@@ -99,7 +123,7 @@ func permissionTests(_ t: TestHarness) {
             manager.checkOnLaunch()
             t.expectEqual(manager.state, .granted)
 
-            fake.trusted = false // user revokes in System Settings while running
+            fake.trusted = false
             manager.refresh()
             t.expectEqual(manager.state, .revoked)
             t.expect(manager.state != .notDetermined, "revoked must not read as a fresh install")
@@ -123,7 +147,7 @@ func permissionTests(_ t: TestHarness) {
             t.expectEqual(manager.state, .revoked)
             t.expectEqual(grantedFires, 1, "revocation does not fire granted handlers")
 
-            fake.trusted = true // user re-grants via the deep link
+            fake.trusted = true
             manager.refresh()
             t.expectEqual(manager.state, .granted)
             t.expectEqual(grantedFires, 2, "re-grant fires handlers again")
@@ -153,8 +177,8 @@ func permissionTests(_ t: TestHarness) {
             let manager = AccessibilityPermissionManager(trustChecker: fake)
             var aFires = 0
             var bFires = 0
-            manager.onGrantedTransition { aFires += 1 } // e.g. U8 LoginItemManager
-            manager.onGrantedTransition { bFires += 1 } // e.g. U5 HotkeyManager
+            manager.onGrantedTransition { aFires += 1 }
+            manager.onGrantedTransition { bFires += 1 }
 
             fake.trusted = true
             manager.refresh()
