@@ -29,7 +29,7 @@ then:
 1. launch Quintile
 2. **System Settings → Privacy & Security → Accessibility** → enable Quintile
 
-unsigned build for now — Homebrew clears quarantine on install. manual download once:
+signed and notarized. if Gatekeeper still complains after a manual download:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Quintile.app
@@ -63,7 +63,7 @@ make app    # dist/Quintile.app
 
 ## status
 
-v0.1.5 · macOS 14+ · Apple Silicon · unsigned (no Developer ID / notarization yet)
+v0.1.6 · macOS 14+ · Apple Silicon · Developer ID signed & notarized
 
 ## license
 
