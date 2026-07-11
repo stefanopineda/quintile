@@ -12,7 +12,7 @@ Place any window on any N×M span — two keypresses, no mouse.
 - **span picker** — `⌃⌥G`, two cells, done
 - **presets + profiles** — thirds, quarters, three grids per display
 - **public Accessibility API only** — no SIP hacks, no private frameworks
-- **free, MIT**
+- **free, MIT** · Developer ID signed & notarized
 
 ---
 
@@ -22,18 +22,18 @@ Place any window on any N×M span — two keypresses, no mouse.
 brew install --cask stefanopineda/quintile/quintile
 ```
 
-or download [Quintile.app.zip](https://github.com/stefanopineda/quintile/releases/latest) · or `git clone` + `make run`
-
-then:
-
-1. launch Quintile
-2. **System Settings → Privacy & Security → Accessibility** → enable Quintile
-
-signed and notarized. if Gatekeeper still complains after a manual download:
+or:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/Quintile.app
+brew tap stefanopineda/quintile
+brew install --cask quintile
 ```
+
+or download [Quintile.app.zip](https://github.com/stefanopineda/quintile/releases/latest) · or `git clone` + `make run`
+
+then: **System Settings → Privacy & Security → Accessibility → Quintile**
+
+> Official `brew install quintile` (homebrew/cask) is blocked until the GitHub repo meets Homebrew notability (~225 stars / 90 forks / 90 watchers). We submitted [PR #274471](https://github.com/Homebrew/homebrew-cask/pull/274471); maintainers asked to resubmit once thresholds are met.
 
 ## keys
 
@@ -57,7 +57,7 @@ cd quintile && make run
 ```
 
 ```bash
-make test   # unit tests
+make test
 make app    # dist/Quintile.app
 ```
 
