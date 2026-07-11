@@ -36,6 +36,7 @@ final class AppCoordinator: NSObject {
     private let sendToDisplayAction: SendToDisplayAction
     private let profileCycler: ProfileCycler
     private let loginItemManager = LoginItemManager(service: SMAppServiceLoginItem())
+    private let onboardingProgress: OnboardingProgressStore
 
     private let stateMachine = GridSelectionStateMachine()
     private let overlay = GridOverlayController()
@@ -54,6 +55,9 @@ final class AppCoordinator: NSObject {
     private var session: SelectionSession?
     private var permissionTimer: Timer?
     private var lastKnownPermissionState: PermissionState = .notDetermined
+    /// True while the onboarding window is visible — drives faster AX poll.
+    private var onboardingVisible = false
+    private var didShowDiscoverability = false
 
     // MARK: - Init
 
@@ -62,6 +66,8 @@ final class AppCoordinator: NSObject {
         store = made.store
         storeFallbackError = made.fallbackError
         storeQuarantinePath = made.quarantinePath
+        onboardingProgress = (try? OnboardingProgressStore())
+            ?? OnboardingProgressStore(initial: .neverSeen)
 
         let controller = AXWindowController(backend: LiveAXBackend())
         windowController = controller
@@ -125,9 +131,14 @@ final class AppCoordinator: NSObject {
         wireMenuBar()
         registerHotkeyActions()
 
-        // Permission flow (plan "Permission & login-item flow"): the granted
-        // transition — and ONLY it — activates the event tap and registers
-        // the login item. Never speculatively.
+        let demoMode = ProcessInfo.processInfo.arguments.contains("--demo")
+            || ProcessInfo.processInfo.environment["QUINTILE_DEMO"] == "1"
+        if demoMode {
+            onboardingProgress.suppressForDemo()
+        }
+
+        // Permission flow: the granted transition — and ONLY it — activates
+        // the event tap and registers the login item. Never speculatively.
         permissionManager.onGrantedTransition { [weak self] in
             guard let self else { return }
             do {
@@ -137,6 +148,12 @@ final class AppCoordinator: NSObject {
                     Data("Quintile: event tap activation failed: \(error)\n".utf8))
             }
             self.loginItemManager.registerAfterPermissionGranted()
+            self.onboardingProgress.markWaitingIfNeeded()
+            self.syncPermissionState()
+            if self.onboardingProgress.coach == .waitingForTry
+                || self.onboardingProgress.coach == .neverSeen {
+                self.showOnboarding()
+            }
         }
 
         // Mid-session interruptions for the grid-select overlay.
@@ -149,19 +166,18 @@ final class AppCoordinator: NSObject {
 
         permissionManager.checkOnLaunch()
         syncPermissionState()
+        showDiscoverabilityIfNeeded()
 
         if permissionManager.state != .granted {
             showOnboarding()
             if permissionManager.state == .notDetermined {
-                // Land the user directly on the Accessibility toggle instead
-                // of relying on them to notice and click through the OS's
-                // own small permission alert — mirrors the first-run flow of
-                // Rectangle/Magnet/etc.
                 NSWorkspace.shared.open(AccessibilityPermissionManager.accessibilitySettingsDeepLink)
             }
+        } else if onboardingProgress.coach == .waitingForTry {
+            showOnboarding()
         }
 
-        if let storeFallbackError {
+        if !demoMode, let storeFallbackError {
             let backupNote = storeQuarantinePath.map {
                 " The unreadable profile file was set aside at \($0)."
             } ?? ""
@@ -174,9 +190,7 @@ final class AppCoordinator: NSObject {
             \(backupNote)
             """
             alert.runModal()
-        } else if let storeQuarantinePath {
-            // Quarantine + retry succeeded: profiles were reset to defaults
-            // but persistence is healthy again.
+        } else if !demoMode, let storeQuarantinePath {
             let alert = NSAlert()
             alert.messageText = "Grid profiles were reset"
             alert.informativeText = """
@@ -188,41 +202,71 @@ final class AppCoordinator: NSObject {
         }
     }
 
+    /// Spotlight / `open -a` while already running: re-surface stuck UI.
+    func handleReopen() {
+        refreshPermission()
+        let state = permissionManager.state
+        let coach = onboardingProgress.coach
+        if state != .granted {
+            showOnboarding()
+        } else if coach == .waitingForTry || coach == .neverSeen {
+            onboardingProgress.markWaitingIfNeeded()
+            showOnboarding()
+        }
+        // completed / skipped + granted → menu bar only
+    }
+
     // MARK: - Permission polling & UI sync
 
-    /// Central permission-state sync: updates the menu-bar icon and the
-    /// onboarding copy, deactivates hotkeys on revocation, and manages the
-    /// 3-second polling timer (runs while not granted, invalidated once
-    /// granted, restarted when a later check reports a revoke).
+    /// Central permission-state sync: menu-bar icon, onboarding modes, hotkey
+    /// deactivate on revoke, and adaptive poll while not granted.
     private func syncPermissionState() {
         let state = permissionManager.state
+        let previous = lastKnownPermissionState
 
-        if state != lastKnownPermissionState {
-            if state == .revoked { hotkeyManager.deactivate() }
+        if state != previous {
+            if state == .revoked {
+                hotkeyManager.deactivate()
+                // Auto-show once per revoke transition.
+                showOnboarding()
+            }
             lastKnownPermissionState = state
         }
 
         menuBar.update(permissionState: state)
-        onboarding.update(state: state)
+        onboarding.update(state: state, coach: onboardingProgress.coach)
+        restartPermissionTimerIfNeeded(state: state)
+    }
 
+    private func restartPermissionTimerIfNeeded(state: PermissionState) {
         if state == .granted {
             permissionTimer?.invalidate()
             permissionTimer = nil
-        } else if permissionTimer == nil {
-            permissionTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
-                guard let self else { return }
-                self.permissionManager.refresh()
-                self.syncPermissionState()
-            }
+            return
+        }
+        let interval: TimeInterval = onboardingVisible ? 0.75 : 3.0
+        // Rebuild timer when interval changes or timer is missing.
+        if let timer = permissionTimer, abs(timer.timeInterval - interval) < 0.01 {
+            return
+        }
+        permissionTimer?.invalidate()
+        permissionTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            self.permissionManager.refresh()
+            self.syncPermissionState()
         }
     }
 
-    /// Cheap pre-action re-check (plan: poll "on-demand before each
-    /// hotkey-triggered action") — this is also what restarts the polling
-    /// timer when a revoke happened while the timer was idle.
     private func refreshPermission() {
         permissionManager.refresh()
         syncPermissionState()
+    }
+
+    private func showDiscoverabilityIfNeeded() {
+        guard !didShowDiscoverability else { return }
+        didShowDiscoverability = true
+        let glyph = permissionManager.state == .granted ? "⊞" : "⊞!"
+        menuBar.showTransient(title: "\(glyph) menu bar", duration: 4.0)
     }
 
     // MARK: - Hotkey wiring
@@ -262,7 +306,30 @@ final class AppCoordinator: NSObject {
     }
 
     private func performPreset(_ preset: PresetAction) {
-        if case .failed = tilingActions.perform(preset) { failureSignal() }
+        let outcome = tilingActions.perform(preset)
+        switch outcome {
+        case .failed:
+            failureSignal()
+            if onboardingProgress.coach == .waitingForTry {
+                onboarding.setCoachFeedback(
+                    "That app blocked the resize — try Finder, Notes, or Safari.")
+            }
+        case .noFocusedWindow:
+            if onboardingProgress.coach == .waitingForTry {
+                onboarding.setCoachFeedback(
+                    "Click a window first, then hold Control+Option and press [.")
+            }
+        case .performed:
+            if FirstWinDetector.shouldCompleteCoach(preset: preset, outcome: outcome),
+               onboardingProgress.coach == .waitingForTry
+                || onboardingProgress.coach == .neverSeen {
+                onboardingProgress.markCompleted()
+                onboarding.update(state: permissionManager.state, coach: .completed)
+                onboarding.show()
+            }
+        case .onlyOneDisplay:
+            break
+        }
     }
 
     private func performMove(_ direction: MoveDirection) {
@@ -616,21 +683,42 @@ final class AppCoordinator: NSObject {
         let controller = OnboardingWindowController()
         controller.onRequestPermission = { [weak self] in
             guard let self else { return }
-            self.permissionManager.checkOnLaunch() // prompts at most once/launch
+            self.onboarding.markUserAttemptedEnablement()
+            self.permissionManager.checkOnLaunch()
             self.syncPermissionState()
-            // Always jump straight to the Accessibility pane — checkOnLaunch
-            // only shows the OS's own prompt once per launch, so a repeat
-            // click here still needs to get the user back to the toggle.
             NSWorkspace.shared.open(AccessibilityPermissionManager.accessibilitySettingsDeepLink)
         }
-        controller.onOpenSettings = {
+        controller.onOpenSettings = { [weak self] in
+            self?.onboarding.markUserAttemptedEnablement()
             NSWorkspace.shared.open(AccessibilityPermissionManager.accessibilitySettingsDeepLink)
+        }
+        controller.onCheckAgain = { [weak self] in
+            guard let self else { return }
+            self.onboarding.markUserAttemptedEnablement()
+            self.refreshPermission()
+            if self.permissionManager.state == .granted {
+                self.onboardingProgress.markWaitingIfNeeded()
+                self.syncPermissionState()
+                self.showOnboarding()
+            }
+        }
+        controller.onSkipCoach = { [weak self] in
+            self?.onboardingProgress.markSkipped()
+            self?.syncPermissionState()
+        }
+        controller.onDismissCoachDone = { [weak self] in
+            self?.syncPermissionState()
+        }
+        controller.onVisibilityChange = { [weak self] visible in
+            guard let self else { return }
+            self.onboardingVisible = visible
+            self.restartPermissionTimerIfNeeded(state: self.permissionManager.state)
         }
         return controller
     }
 
     private func showOnboarding() {
-        onboarding.update(state: permissionManager.state)
+        onboarding.update(state: permissionManager.state, coach: onboardingProgress.coach)
         onboarding.show()
     }
 

@@ -100,7 +100,9 @@ func appIntegrationTests(_ t: TestHarness) {
     t.suite("LoginItemManager permission gating") { t in
         t.test("never registers speculatively: not while notDetermined or denied") {
             let checker = FakeTrustChecker()
-            let permissions = AccessibilityPermissionManager(trustChecker: checker)
+            var now = Date(timeIntervalSince1970: 2_000_000)
+            let permissions = AccessibilityPermissionManager(
+                trustChecker: checker, now: { now })
             let service = FakeLoginItemService()
             let manager = LoginItemManager(service: service)
             // The one sanctioned wiring point (see LoginItemManager docs).
@@ -112,9 +114,9 @@ func appIntegrationTests(_ t: TestHarness) {
             t.expectEqual(permissions.state, .notDetermined)
             t.expectEqual(service.registerCalls, 0, "no registration while notDetermined")
 
-            for _ in 0..<AccessibilityPermissionManager.deniedGraceChecks {
-                permissions.refresh() // still untrusted through the grace window → denied
-            }
+            permissions.refresh() // starts wall-clock grace
+            now = now.addingTimeInterval(AccessibilityPermissionManager.deniedGraceDuration)
+            permissions.refresh() // grace exhausted → denied
             t.expectEqual(permissions.state, .denied)
             t.expectEqual(service.registerCalls, 0, "no registration while denied")
         }

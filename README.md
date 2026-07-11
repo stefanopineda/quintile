@@ -31,11 +31,23 @@ brew install --cask quintile
 
 or download [Quintile.app.zip](https://github.com/stefanopineda/quintile/releases/latest) · or `git clone` + `make run`
 
-then: **System Settings → Privacy & Security → Accessibility → Quintile**
-
 > Official `brew install quintile` (homebrew/cask) is blocked until the GitHub repo meets Homebrew notability (~225 stars / 90 forks / 90 watchers). We submitted [PR #274471](https://github.com/Homebrew/homebrew-cask/pull/274471); maintainers asked to resubmit once thresholds are met.
 
+### after install
+
+Quintile is a **menu bar app** (no Dock icon).
+
+1. Open it: Spotlight (**⌘Space**) → `Quintile` → Enter (or `/Applications/Quintile.app`)
+2. Look for **⊞!** / **⊞** near the clock
+3. **System Settings → Privacy & Security → Accessibility → Quintile** ON  
+   (if it already looks ON after an update: OFF then ON, then **Check Again**)
+4. Click a window → hold **Control+Option** → press **`[`** (left third)
+
+Full map later: menu bar **⊞ → Quick Start…**
+
 ## keys
+
+Start with thirds. Everything else is optional.
 
 | chord | action |
 |-------|--------|
