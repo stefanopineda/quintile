@@ -75,7 +75,7 @@ make app    # dist/Quintile.app
 
 ## status
 
-v0.1.6 · macOS 14+ · Apple Silicon · Developer ID signed & notarized
+v0.1.7 · macOS 14+ · Apple Silicon · Developer ID signed & notarized
 
 ## license
 
