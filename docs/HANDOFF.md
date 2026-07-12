@@ -192,7 +192,7 @@ working defaults, but merit revisiting with real usage:
 ## 7. Operational checklist for cutting the next release
 
 1. Land changes on `main`, `make test` green.
-2. `make app` → `dist/Quintile.app`.
+2. `make app` → `dist/Quintile.app` (Developer ID + notarize for public zips).
 3. `ditto -c -k --keepParent --sequesterRsrc dist/Quintile.app dist/Quintile.app.zip`.
 4. `shasum -a 256 dist/Quintile.app.zip` → new digest.
 5. Bump `version` in `Casks/quintile.rb` and set the new `sha256`; copy the cask
@@ -200,3 +200,22 @@ working defaults, but merit revisiting with real usage:
 6. `git tag vX.Y.Z && git push --tags`; `gh release create vX.Y.Z dist/Quintile.app.zip`.
 7. Push repo + tap; verify with `brew fetch --cask stefanopineda/quintile/quintile`
    (fails on checksum mismatch).
+8. **Required:** `make verify-brew` (`Scripts/verify-brew-lifecycle.sh`) — proves
+   install → first-run window → uninstall clears receipts → reinstall works.
+   Do **not** ship a cask bump without this. Manual uninstall/reinstall by the
+   user is not a substitute.
+
+### Orphan brew receipt (user recovery)
+
+If `brew install` says *Not upgrading, the latest version is already installed*
+but `/Applications/Quintile.app` is missing:
+
+```bash
+brew uninstall --cask --force --zap stefanopineda/quintile/quintile
+# or
+brew reinstall --cask stefanopineda/quintile/quintile
+```
+
+Cause: Homebrew tracks **Caskroom metadata**, not “app exists.” Deleting the
+app by hand (or a half-finished uninstall) leaves a receipt; plain `install`
+then no-ops.

@@ -53,21 +53,32 @@ public enum UninstallScript {
             echo "warning: $APP_NAME still running; continuing anyway"
           fi
 
-          # 1) Homebrew cask when present
+          # 1) Homebrew: always force-uninstall + zap when brew is present.
+          # A plain `brew uninstall` is not enough if the user deleted
+          # /Applications/Quintile.app by hand — brew still has a receipt in
+          # Caskroom and `brew install` then says "latest version already
+          # installed" with a 0-byte staged version. --force --zap purges
+          # the receipt + zap trash list.
           if command -v brew >/dev/null 2>&1; then
-            if brew list --cask "$CASK" >/dev/null 2>&1; then
-              echo "brew uninstall --cask $CASK"
-              brew uninstall --cask "$CASK" || echo "brew uninstall failed (continuing)"
-            else
-              echo "cask $CASK not installed via Homebrew"
-            fi
+            echo "brew uninstall --cask --force --zap $CASK"
+            brew uninstall --cask --force --zap "$CASK" 2>&1 \
+              || echo "brew uninstall --force --zap failed (continuing)"
+            # Belt: remove any leftover Caskroom staging if brew left it.
+            for PREFIX in /opt/homebrew /usr/local; do
+              CR="$PREFIX/Caskroom/$CASK"
+              if [ -d "$CR" ]; then
+                echo "rm -rf $CR"
+                rm -rf "$CR" || true
+              fi
+            done
           else
             echo "brew not found on PATH"
           fi
 
           # 2) Remove leftover app bundles (manual install or incomplete brew)
+          killall "$APP_NAME" 2>/dev/null || true
           for APP_PATH in "/Applications/Quintile.app" "$HOME/Applications/Quintile.app"; do
-            if [ -d "$APP_PATH" ]; then
+            if [ -e "$APP_PATH" ] || [ -L "$APP_PATH" ]; then
               echo "rm -rf $APP_PATH"
               rm -rf "$APP_PATH" || echo "failed to remove $APP_PATH"
             fi

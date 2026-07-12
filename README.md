@@ -45,6 +45,18 @@ Quintile is a **menu bar app** (no Dock icon).
 
 Full map later: menu bar **⊞ → Quick Start…**
 
+### upgrade / reinstall / “already installed”
+
+```bash
+brew reinstall --cask stefanopineda/quintile/quintile   # preferred
+# if install says "latest version is already installed" but the app is gone:
+brew uninstall --cask --force --zap stefanopineda/quintile/quintile
+brew install --cask stefanopineda/quintile/quintile
+```
+
+`brew install` does **not** reinstall when Homebrew still has a cask receipt.
+Deleting the app in Finder is not a full uninstall.
+
 ## keys
 
 Start with thirds. Everything else is optional.

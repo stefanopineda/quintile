@@ -190,8 +190,8 @@ func appIntegrationTests(_ t: TestHarness) {
     t.suite("UninstallScript clean uninstall") { t in
         t.test("shell source runs brew cask uninstall and tccutil reset") {
             let source = UninstallScript.shellSource()
-            t.expect(source.contains("brew uninstall --cask"),
-                     "must uninstall Homebrew cask")
+            t.expect(source.contains("brew uninstall --cask --force --zap"),
+                     "must force-uninstall + zap so orphan receipts cannot block reinstall")
             t.expect(source.contains(UninstallScript.caskName),
                      "must target the quintile cask")
             t.expect(source.contains("tccutil reset Accessibility"),

@@ -16,6 +16,9 @@ cask "quintile" do
 
   app "Quintile.app"
 
+  # Quit before brew removes the bundle (avoids orphan process + half-uninstall).
+  uninstall quit: "com.stefanopineda.quintile"
+
   # Kill any leftover process (common after reinstall while old binary still
   # runs), then launch so first-run coach is not skipped.
   postflight do
