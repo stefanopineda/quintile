@@ -61,9 +61,13 @@ final class OnboardingWindowController: NSObject {
 
     func show() {
         sizeToFitContent()
+        window.level = .floating
+        window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        // Belt-and-braces for accessory apps that lose z-order under Terminal/brew.
+        window.orderFrontRegardless()
         onVisibilityChange?(true)
     }
 

@@ -136,6 +136,10 @@ final class AppCoordinator: NSObject {
         if demoMode {
             onboardingProgress.suppressForDemo()
         }
+        // Homebrew postflight passes --first-run so a reinstall always offers
+        // the coach again when the user has not completed a first tile
+        // (never forces after completed — only re-surfaces waiting/neverSeen).
+        let forceFirstRun = ProcessInfo.processInfo.arguments.contains("--first-run")
 
         // Permission flow: the granted transition — and ONLY it — activates
         // the event tap and registers the login item. Never speculatively.
@@ -168,14 +172,16 @@ final class AppCoordinator: NSObject {
         syncPermissionState()
         showDiscoverabilityIfNeeded()
 
-        if permissionManager.state != .granted {
-            showOnboarding()
-            if permissionManager.state == .notDetermined {
-                NSWorkspace.shared.open(AccessibilityPermissionManager.accessibilitySettingsDeepLink)
-            }
-        } else if onboardingProgress.coach == .waitingForTry {
-            showOnboarding()
+        // First-run surfaces (must cover "Accessibility already ON from a prior
+        // install" — onGrantedTransition may have fired above, but cold start
+        // with neverSeen + already-granted used to skip the coach entirely when
+        // only `.waitingForTry` was checked).
+        if forceFirstRun,
+           onboardingProgress.coach == .skipped {
+            // Reinstall: user asked for first-run again via brew postflight.
+            onboardingProgress.setCoach(.neverSeen)
         }
+        presentFirstRunIfNeeded(openSettingsIfUndetermined: true)
 
         if !demoMode, let storeFallbackError {
             let backupNote = storeQuarantinePath.map {
@@ -205,15 +211,32 @@ final class AppCoordinator: NSObject {
     /// Spotlight / `open -a` while already running: re-surface stuck UI.
     func handleReopen() {
         refreshPermission()
+        presentFirstRunIfNeeded(openSettingsIfUndetermined: false)
+        // completed / skipped + granted → menu bar only (no window)
+    }
+
+    /// Show permission UI, or the first-win coach, whenever the user still
+    /// has not finished (or skipped) first-run teaching.
+    private func presentFirstRunIfNeeded(openSettingsIfUndetermined: Bool) {
         let state = permissionManager.state
         let coach = onboardingProgress.coach
+
         if state != .granted {
             showOnboarding()
-        } else if coach == .waitingForTry || coach == .neverSeen {
+            if openSettingsIfUndetermined, state == .notDetermined {
+                NSWorkspace.shared.open(
+                    AccessibilityPermissionManager.accessibilitySettingsDeepLink)
+            }
+            return
+        }
+
+        switch coach {
+        case .neverSeen, .waitingForTry:
             onboardingProgress.markWaitingIfNeeded()
             showOnboarding()
+        case .completed, .skipped:
+            break
         }
-        // completed / skipped + granted → menu bar only
     }
 
     // MARK: - Permission polling & UI sync
