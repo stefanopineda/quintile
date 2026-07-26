@@ -1,6 +1,6 @@
-# Launch wave 2 — frozen copy (do not post until main has storefront README)
+# Announce drafts — do not post until storefront README is on `main`
 
-**Hook (one idea only):** `⌃⌥G` → two cells → rectangular span.  
+**Hook (one idea):** `⌃⌥G` → two cells → rectangular span.  
 **Primary media:** `docs/demos/grid-select.gif` (fallback: `docs/demos/hero.mp4`)  
 **Install (every post):**
 
@@ -10,18 +10,18 @@ brew install --cask stefanopineda/quintile/quintile
 
 **Repo:** https://github.com/stefanopineda/quintile  
 
-**Human posts.** Drafts only on this branch until you merge + approve.
+**You post.** These are drafts for when the product and landing page are ready to show.
 
 ---
 
-## Assets checklist
+## Assets
 
-| Asset | Path | Ready |
-|-------|------|-------|
-| Grid span (primary) | `docs/demos/grid-select.gif` | yes |
-| Hero reel | `docs/demos/hero.gif` / `hero.mp4` | yes |
-| Presets | `docs/demos/presets-move.gif` | optional follow-up reply |
-| Profiles | `docs/demos/profiles.gif` | optional follow-up reply |
+| Asset | Path |
+|-------|------|
+| Grid span (primary) | `docs/demos/grid-select.gif` |
+| Hero reel | `docs/demos/hero.gif` / `hero.mp4` |
+| Presets | `docs/demos/presets-move.gif` |
+| Profiles | `docs/demos/profiles.gif` |
 
 ---
 
@@ -40,7 +40,7 @@ brew install --cask stefanopineda/quintile/quintile
 https://github.com/stefanopineda/quintile
 ```
 
-**Media:** attach `grid-select.gif` or short MP4 export of the same action.
+**Media:** attach `grid-select.gif` or a short MP4 of the same action.
 
 ---
 
@@ -71,19 +71,18 @@ Laptop: start with thirds (⌃⌥[ ] \). The 5×2 default shines when you have w
 Not a yabai or AeroSpace replacement — you place windows; nothing rearranges for you.
 
 Repo: https://github.com/stefanopineda/quintile
-Demo GIF: (attach grid-select) or see README demos
 ```
 
 ---
 
-## Channel order (after merge only)
+## Suggested order (after merge, when *you* choose)
 
 | Order | Channel | Notes |
 |-------|---------|--------|
 | 1 | X | Master short + media |
 | 2 | r/MacApps | Longer body; check flair/rules |
-| 3 | Optional second sub | Not same hour as #2 |
-| 4 | Show HN (optional) | Title from list above; stay for comments |
+| 3 | Optional second sub | Not the same hour as #2 |
+| 4 | Show HN (optional) | Stay for comments if you post |
 
 ---
 
@@ -92,7 +91,7 @@ Demo GIF: (attach grid-select) or see README demos
 **Laptop skepticism**
 
 ```text
-Fair — on a 16" I use thirds first (⌃⌥[ ] \). The 5×2 / span picker is for when you have width (external or ultrawide). Spaces still fine for “whole workspace” switching; Quintile is place-this-window, not auto-tile.
+Fair — on a 16" I use thirds first (⌃⌥[ ] \). The 5×2 / span picker is for when you have width (external or ultrawide). Spaces is still fine for whole-workspace switching; Quintile is place-this-window, not auto-tile.
 ```
 
 **vs Rectangle**
@@ -109,11 +108,11 @@ Menu bar ⊞! → grant Accessibility. If the toggle already looks ON: OFF then 
 
 ---
 
-## Metrics log (fill after wave)
+## After you announce (optional log — utility signals)
 
-| Metric | Before | After 48h |
-|--------|--------|-----------|
-| Stars | | |
-| Unique views | | |
-| Latest zip downloads | | |
-| Top referrer | | |
+| Signal | Notes |
+|--------|--------|
+| Can a stranger complete first tile from the README? | |
+| Install friction reported | Issues / replies |
+| Which demo / channel people respond to | |
+| Referrers (Insights → Traffic) | discovery, not a score |

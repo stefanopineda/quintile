@@ -1,6 +1,8 @@
-# Post-merge checklist (only after you merge `growth/500-stars` → `main`)
+# After merge (`docs/storefront-discoverability` → `main`)
 
-## 1. Storefront knobs (public repo settings)
+Only when you are happy with the storefront.
+
+## 1. Discoverability knobs (optional, public repo)
 
 ```bash
 gh repo edit stefanopineda/quintile \
@@ -13,34 +15,34 @@ gh repo edit stefanopineda/quintile \
   --add-topic accessibility
 ```
 
-- [ ] Social preview image: GitHub → Settings → General → Social preview  
-  Use a still from `docs/demos/grid-select.gif` or hero (upload PNG ~1280×640).
+- [ ] Social preview: Settings → General → Social preview  
+  Prefer a still of the grid span (so shares show the product, not a blank default).
 
 ## 2. Confirm live README
 
 - [ ] https://github.com/stefanopineda/quintile shows demos + differentiator  
-- [ ] Install command still tap path  
+- [ ] Install command is the tap path  
+- [ ] No vanity-metric language  
 
-## 3. Launch wave (you post)
+## 3. Announce only when ready (you post)
 
-Order from `docs/marketing/launch-wave-2.md`:
+Copy: `docs/marketing/launch-wave-2.md`
 
-- [ ] X + media  
-- [ ] r/MacApps  
-- [ ] Optional second sub / Show HN  
-- [ ] Reply window 24–48h  
+- [ ] X + media (if you want)  
+- [ ] r/MacApps (if you want)  
+- [ ] Reply to real questions for a day or two  
 
-## 4. Amplifiers (you send)
+## 4. Optional outreach
 
-- [ ] Edit table in `docs/marketing/amplifier-kit.md`  
-- [ ] Send warm 3 first  
+- [ ] Edit `docs/marketing/amplifier-kit.md`  
+- [ ] Send only warm / high-fit notes  
 
-## 5. Metrics (48h later)
+## 5. Watch utility signals (not a scoreboard)
 
 ```bash
-gh api repos/stefanopineda/quintile --jq '{stars:.stargazers_count,forks:.forks_count,watchers:.subscribers_count}'
 gh api repos/stefanopineda/quintile/traffic/views --jq '{count,uniques}'
 gh api repos/stefanopineda/quintile/traffic/popular/referrers
+gh api repos/stefanopineda/quintile/releases/latest --jq '.assets[] | {name,download_count}'
 ```
 
-Log into `launch-wave-2.md` metrics table.
+Also: Issues and real replies — can people install and get a first tile?

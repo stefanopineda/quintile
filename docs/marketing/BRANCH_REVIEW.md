@@ -1,9 +1,9 @@
-# Review & test this branch (`growth/500-stars`)
+# Review & test this branch (`docs/storefront-discoverability`)
 
 **Do not merge to `main` until you approve.**  
-**Do not post launch content until `main` has this README.**
+**Do not announce until `main` has this README.**
 
-This branch packages Phase A + B + C of the 500-star plan as **reviewable artifacts only**. Nothing is posted or DMed yet.
+This branch is docs-only: storefront README + announce/outreach *drafts*. Nothing is posted yet.
 
 ---
 
@@ -12,74 +12,109 @@ This branch packages Phase A + B + C of the 500-star plan as **reviewable artifa
 | Path | What |
 |------|------|
 | `README.md` | Storefront / demo-reel README |
-| `docs/PATH_TO_HOMEBREW.md` | Path to official `brew install --cask quintile` |
+| `docs/PATH_TO_HOMEBREW.md` | Official cask as install ease — packaging notes |
 | `docs/STOREFRONT_REVIEW.md` | README delta notes |
-| `docs/plans/2026-07-26-001-growth-500-stars-execution-plan.md` | Full runbook |
-| `docs/marketing/launch-wave-2.md` | Frozen post copy (X / Reddit / HN) |
-| `docs/marketing/amplifier-kit.md` | DM packet + starter target list |
-| `docs/marketing/post-merge-checklist.md` | Topics, social preview, post order (after merge) |
+| `docs/plans/2026-07-26-001-storefront-and-discoverability-plan.md` | Plan (utility / ease / discoverability) |
+| `docs/marketing/launch-wave-2.md` | Announce copy drafts |
+| `docs/marketing/amplifier-kit.md` | Optional outreach packet |
+| `docs/marketing/post-merge-checklist.md` | After merge only |
 | `docs/demos/*` | Unchanged GIF/MP4 assets |
-
-**Not done (on purpose):** live posts, amplifier DMs, GitHub topics on public repo, merge to `main`.
 
 ---
 
-## How you review
+## Discrete pre-merge tests
 
-### 1. README (Phase A)
+Do these in order. Check boxes as you go.
 
-1. Open the PR (or branch) on GitHub → **Files changed** → `README.md` preview.  
-2. Or: https://github.com/stefanopineda/quintile/blob/growth%2F500-stars/README.md  
-3. Check:
-   - [ ] Differentiator clear in first screen (span / N×M, not “tiling app”)  
-   - [ ] `grid-select.gif` loads and shows the magic moment  
-   - [ ] for / not for + laptop line feel honest  
-   - [ ] Install is still **tap** path, not fake official `brew install quintile`  
-   - [ ] Soft star CTA under status is OK (not beggarly)  
-   - [ ] Tone not too salesy  
+### Test 1 — README cold read (5 minutes)
 
-**Edit path:** comment on PR or edit `README.md` on this branch.
+1. Open the PR **Files changed** → `README.md`, or:  
+   https://github.com/stefanopineda/quintile/blob/docs%2Fstorefront-discoverability/README.md  
+2. Without scrolling for a “tutorial,” answer out loud:
+   - [ ] What does this do that Rectangle doesn’t?  
+   - [ ] How do I install in one copy-paste?  
+   - [ ] What do I press first after Accessibility?  
+3. Confirm:
+   - [ ] No scoreboard / vanity-metric language  
+   - [ ] Official cask note is factual, not a campaign  
+   - [ ] Tone is lean, not salesy  
 
-### 2. Install still works (sanity)
+**Fail if:** a stranger only gets “another tiler.” **Fix:** tighten lead / demos before merge.
 
-This branch does **not** change the app. Optional:
+### Test 2 — Demo assets load (2 minutes)
+
+On the branch README render:
+
+- [ ] Hero GIF or MP4 plays / loads  
+- [ ] `grid-select.gif` shows two-cell span  
+- [ ] presets-move and profiles GIFs load  
+
+Local check if GH is flaky:
+
+```bash
+cd /path/to/quintile   # this branch checked out
+open docs/demos/grid-select.gif
+open docs/demos/hero.gif
+ls -lh docs/demos/
+```
+
+**Fail if:** broken image links. **Fix:** paths must stay `docs/demos/...` relative to repo root.
+
+### Test 3 — Diff is docs-only (1 minute)
+
+```bash
+git fetch origin
+git diff origin/main...docs/storefront-discoverability --stat
+```
+
+- [ ] Only markdown / docs paths (README, docs/**)  
+- [ ] No `Sources/`, `Casks/`, or binary app changes  
+
+**Fail if:** app code sneaked in. **Fix:** drop those commits before merge.
+
+### Test 4 — Install path still works (5–10 minutes)
+
+This branch does not change the app; confirm the **documented** commands still match reality:
 
 ```bash
 brew reinstall --cask stefanopineda/quintile/quintile
-# first tile: focus a window, ⌃⌥[
+# or: open from Applications after reinstall
 ```
 
-### 3. Launch drafts (Phase B)
+Then:
 
-1. Read `docs/marketing/launch-wave-2.md`.  
-2. Preview media: open `docs/demos/grid-select.gif` (primary) and `hero.mp4`.  
-3. Check:
-   - [ ] Hook is two-cell span first  
-   - [ ] Install one-liner correct  
-   - [ ] You’re willing to post this text as-is (or mark edits)  
+- [ ] Menu bar shows ⊞ or ⊞!  
+- [ ] Accessibility can be granted (OFF→ON if sticky)  
+- [ ] Focus Safari/Notes → hold **⌃⌥** → **`[`** → left third  
+- [ ] **⌃⌥G** → two cell keys → custom span  
 
-**Do not post until main is merged.**
+**Fail if:** README steps don’t match the app. **Fix:** README copy or note known bug in PR — do not merge a lying install section.
 
-### 4. Amplifier kit (Phase C)
+### Test 5 — Marketing drafts are drafts (2 minutes)
 
-1. Read `docs/marketing/amplifier-kit.md`.  
-2. Fill/adjust the target table with people you actually know or want to contact.  
-3. Check DM packet isn’t cringe.  
+- [ ] `docs/marketing/launch-wave-2.md` hook is span-first  
+- [ ] Install line matches README tap command  
+- [ ] No “please star” / scoreboard language in drafts  
+- [ ] You did **not** post or DM yet (correct until after merge)  
 
-**Do not send DMs until main is merged and wave posts are ready.**
+### Test 6 — Optional: PR preview as a stranger
 
----
-
-## After you approve
-
-1. Merge this PR → `main` (docs only).  
-2. Follow `docs/marketing/post-merge-checklist.md` (topics, social preview, then post order).  
-3. You hit Post / Send — agent drafts only.
+- [ ] Open PR in a private/incognito window (logged out if possible)  
+- [ ] First screen of README still makes sense  
 
 ---
+
+## Pass criteria to merge
+
+All of Test 1–5 pass (Test 6 optional). Then:
+
+1. Merge this PR → `main`  
+2. Follow `docs/marketing/post-merge-checklist.md` only if you want topics / announce  
 
 ## Reject / revise
 
-- Want shorter README → cut “for / not for” or demote presets GIFs.  
-- Want different hook → edit `launch-wave-2.md` master copy.  
-- Want zero star CTA → delete the status line in README.
+| Symptom | Action |
+|---------|--------|
+| README too long / salesy | Cut for/not-for or demote secondary GIFs |
+| Hook wrong | Edit lead sentence + `launch-wave-2.md` |
+| Install steps wrong | Fix README after Test 4 |

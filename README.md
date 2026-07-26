@@ -45,7 +45,7 @@ brew install --cask quintile
 
 or download [Quintile.app.zip](https://github.com/stefanopineda/quintile/releases/latest) · or `git clone` + `make run`
 
-> Official `brew install --cask quintile` (homebrew/cask) opens once this repo meets [Homebrew notability](https://docs.brew.sh/Package-Acceptance-Policy#notability) for self-submissions: **≥225 stars**, or ≥90 forks, or ≥90 watchers. Prior PR: [homebrew-cask#274471](https://github.com/Homebrew/homebrew-cask/pull/274471). Until then use the tap above — same app, one extra word.
+> Official `brew install --cask quintile` (homebrew/cask) is not available yet — Homebrew applies an inclusion policy for new casks. Until then use the tap above: same app, one extra word. Prior submission: [homebrew-cask#274471](https://github.com/Homebrew/homebrew-cask/pull/274471). Details: `docs/PATH_TO_HOMEBREW.md`.
 
 ### after install
 
@@ -122,8 +122,7 @@ make app    # dist/Quintile.app
 
 v0.1.8 · macOS 14+ · Apple Silicon · Developer ID signed & notarized
 
-First-run notes or bugs → [Issues](https://github.com/stefanopineda/quintile/issues).  
-If the two-cell span picker stuck for you, a star helps clear [Homebrew notability](https://docs.brew.sh/Package-Acceptance-Policy#notability) so install can become `brew install --cask quintile`.
+Questions or bugs → [Issues](https://github.com/stefanopineda/quintile/issues).
 
 ## license
 
