@@ -122,7 +122,8 @@ make app    # dist/Quintile.app
 
 v0.1.8 · macOS 14+ · Apple Silicon · Developer ID signed & notarized
 
-If the two-cell span picker stuck for you, a star helps us clear Homebrew notability so install becomes `brew install --cask quintile`.
+First-run notes or bugs → [Issues](https://github.com/stefanopineda/quintile/issues).  
+If the two-cell span picker stuck for you, a star helps clear [Homebrew notability](https://docs.brew.sh/Package-Acceptance-Policy#notability) so install can become `brew install --cask quintile`.
 
 ## license
 
