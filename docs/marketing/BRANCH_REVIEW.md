@@ -60,35 +60,47 @@ ls -lh docs/demos/
 
 **Fail if:** broken image links. **Fix:** paths must stay `docs/demos/...` relative to repo root.
 
-### Test 3 — Diff is docs-only (1 minute)
+### Test 3 — Diff is expected (1 minute)
 
 ```bash
 git fetch origin
 git diff origin/main...docs/storefront-discoverability --stat
 ```
 
-- [ ] Only markdown / docs paths (README, docs/**)  
-- [ ] No `Sources/`, `Casks/`, or binary app changes  
+Expected: `README.md`, `docs/**`, and a small onboarding fix in `Sources/QuintileApp/AppCoordinator.swift` (`--first-run` resets coach after reinstall).
 
-**Fail if:** app code sneaked in. **Fix:** drop those commits before merge.
+- [ ] No unrelated product/feature churn  
+- [ ] No surprise binary or cask breakage  
 
-### Test 4 — Install path still works (5–10 minutes)
+### Test 4 — Clean install + first-tile coach (10 minutes)
 
-This branch does not change the app; confirm the **documented** commands still match reality:
+**Always use the fully-qualified cask** (bare `brew install --cask quintile` fails when multiple taps define `quintile`):
 
 ```bash
-brew reinstall --cask stefanopineda/quintile/quintile
-# or: open from Applications after reinstall
+brew install --cask stefanopineda/quintile/quintile
+```
+
+If you already used Quintile on this Mac, wipe coach state first (otherwise you only get Quick Start — coach was `"completed"` under Application Support):
+
+```bash
+pkill -x Quintile 2>/dev/null; true
+brew uninstall --cask --force --zap stefanopineda/quintile/quintile
+rm -rf ~/Library/Application\ Support/Quintile
+tccutil reset Accessibility com.stefanopineda.quintile
+brew install --cask stefanopineda/quintile/quintile
 ```
 
 Then:
 
-- [ ] Menu bar shows ⊞ or ⊞!  
-- [ ] Accessibility can be granted (OFF→ON if sticky)  
-- [ ] Focus Safari/Notes → hold **⌃⌥** → **`[`** → left third  
-- [ ] **⌃⌥G** → two cell keys → custom span  
+- [ ] Menu bar shows ⊞! or ⊞  
+- [ ] Window is **first-run**: Accessibility and/or **“Try your first tile”** with **Skip for now** — not only the full Quick Start map  
+- [ ] After Accessibility ON: focus Safari/Notes → **⌃⌥[** → left third → coach “Nice”  
+- [ ] **⌃⌥G** → two cells → custom span  
 
-**Fail if:** README steps don’t match the app. **Fix:** README copy or note known bug in PR — do not merge a lying install section.
+**Fail if:** only Quick Start after a clean wipe.  
+**Fail if:** README primary install is bare `brew install --cask quintile`.
+
+**Note:** Release zip on GitHub is still the last tagged app until you cut a new release with the `--first-run` fix. A full Application Support wipe is enough for first-tile coach with the current release.
 
 ### Test 5 — Marketing drafts are drafts (2 minutes)
 
