@@ -133,7 +133,7 @@ make app    # dist/Quintile.app
 
 ## status
 
-v0.1.8 · macOS 14+ · Apple Silicon · Developer ID signed & notarized
+v0.1.9 · macOS 14+ · Apple Silicon · Developer ID signed & notarized
 
 Questions or bugs → [Issues](https://github.com/stefanopineda/quintile/issues).
 

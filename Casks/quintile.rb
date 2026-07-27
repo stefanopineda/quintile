@@ -1,6 +1,6 @@
 cask "quintile" do
-  version "0.1.8"
-  sha256 "dba940767f216f97628eb3284cf7c857fe1fa4c998f640e97cb6f7120776d682"
+  version "0.1.9"
+  sha256 "6b008f715976c4772e500d086be123a0c3a5480bf27268566963f9db068f5577"
 
   url "https://github.com/stefanopineda/quintile/releases/download/v#{version}/Quintile.app.zip"
   name "Quintile"
