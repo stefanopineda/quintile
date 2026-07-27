@@ -1,0 +1,8 @@
+You don't need to settle for sloppy window tiling.
+
+Quintile: keyboard-only grids on macOS.
+⌃⌥G → two cells → window fills that span.
+
+No auto-tile. No SIP. Just place it.
+brew install --cask stefanopineda/quintile/quintile
+https://github.com/stefanopineda/quintile
