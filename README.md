@@ -32,20 +32,22 @@ https://github.com/stefanopineda/quintile/raw/main/docs/demos/hero.mp4
 
 ## 30 seconds to first tile
 
+Use the **fully-qualified** cask name (avoids “exists in multiple taps” if you also have a local/dev tap):
+
 ```bash
 brew install --cask stefanopineda/quintile/quintile
 ```
 
-or:
+Equivalent after tapping once:
 
 ```bash
 brew tap stefanopineda/quintile
-brew install --cask quintile
+brew install --cask stefanopineda/quintile/quintile
 ```
 
 or download [Quintile.app.zip](https://github.com/stefanopineda/quintile/releases/latest) · or `git clone` + `make run`
 
-> Official `brew install --cask quintile` (homebrew/cask) is not available yet — Homebrew applies an inclusion policy for new casks. Until then use the tap above: same app, one extra word. Prior submission: [homebrew-cask#274471](https://github.com/Homebrew/homebrew-cask/pull/274471). Details: `docs/PATH_TO_HOMEBREW.md`.
+> Official homebrew/cask `quintile` is not available yet. Always use `stefanopineda/quintile/quintile` until then — bare `brew install --cask quintile` is ambiguous when another tap also has a `quintile` cask. Prior submission: [homebrew-cask#274471](https://github.com/Homebrew/homebrew-cask/pull/274471). Details: `docs/PATH_TO_HOMEBREW.md`.
 
 ### after install
 
@@ -63,10 +65,21 @@ Full map later: menu bar **⊞ → Quick Start…**
 
 ```bash
 brew reinstall --cask stefanopineda/quintile/quintile
-# if brew says "already installed" but the app is gone:
+```
+
+### clean reinstall (first-tile coach again)
+
+A normal reinstall keeps `~/Library/Application Support/Quintile` (grid profiles + whether you already finished/skipped the first-tile coach). To walk the full first-run path again:
+
+```bash
+pkill -x Quintile 2>/dev/null; true
 brew uninstall --cask --force --zap stefanopineda/quintile/quintile
+rm -rf ~/Library/Application\ Support/Quintile
+tccutil reset Accessibility com.stefanopineda.quintile
 brew install --cask stefanopineda/quintile/quintile
 ```
+
+Then: Accessibility ON → first-tile coach (“Try your first tile”) with **Skip for now**, not only Quick Start.
 
 ---
 

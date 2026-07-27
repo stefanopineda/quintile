@@ -136,9 +136,10 @@ final class AppCoordinator: NSObject {
         if demoMode {
             onboardingProgress.suppressForDemo()
         }
-        // Homebrew postflight passes --first-run so a reinstall always offers
-        // the coach again when the user has not completed a first tile
-        // (never forces after completed — only re-surfaces waiting/neverSeen).
+        // Homebrew postflight passes --first-run so a reinstall re-offers
+        // permission + first-tile coach even if a prior install completed or
+        // skipped teaching (coach flags live under Application Support and
+        // otherwise survive an app-only reinstall).
         let forceFirstRun = ProcessInfo.processInfo.arguments.contains("--first-run")
 
         // Permission flow: the granted transition — and ONLY it — activates
@@ -176,9 +177,8 @@ final class AppCoordinator: NSObject {
         // install" — onGrantedTransition may have fired above, but cold start
         // with neverSeen + already-granted used to skip the coach entirely when
         // only `.waitingForTry` was checked).
-        if forceFirstRun,
-           onboardingProgress.coach == .skipped {
-            // Reinstall: user asked for first-run again via brew postflight.
+        if forceFirstRun, onboardingProgress.coach != .neverSeen {
+            // Reinstall / postflight: always re-teach (or re-prompt AX).
             onboardingProgress.setCoach(.neverSeen)
         }
         presentFirstRunIfNeeded(openSettingsIfUndetermined: true)
