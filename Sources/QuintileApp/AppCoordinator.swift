@@ -136,9 +136,10 @@ final class AppCoordinator: NSObject {
         if demoMode {
             onboardingProgress.suppressForDemo()
         }
-        // Homebrew postflight passes --first-run so a reinstall always offers
-        // the coach again when the user has not completed a first tile
-        // (never forces after completed — only re-surfaces waiting/neverSeen).
+        // Homebrew postflight passes --first-run so a reinstall re-offers
+        // permission + first-tile coach even if a prior install completed or
+        // skipped teaching (coach flags live under Application Support and
+        // otherwise survive an app-only reinstall).
         let forceFirstRun = ProcessInfo.processInfo.arguments.contains("--first-run")
 
         // Permission flow: the granted transition — and ONLY it — activates
@@ -176,9 +177,8 @@ final class AppCoordinator: NSObject {
         // install" — onGrantedTransition may have fired above, but cold start
         // with neverSeen + already-granted used to skip the coach entirely when
         // only `.waitingForTry` was checked).
-        if forceFirstRun,
-           onboardingProgress.coach == .skipped {
-            // Reinstall: user asked for first-run again via brew postflight.
+        if forceFirstRun, onboardingProgress.coach != .neverSeen {
+            // Reinstall / postflight: always re-teach (or re-prompt AX).
             onboardingProgress.setCoach(.neverSeen)
         }
         presentFirstRunIfNeeded(openSettingsIfUndetermined: true)
@@ -223,10 +223,11 @@ final class AppCoordinator: NSObject {
 
         if state != .granted {
             showOnboarding()
-            if openSettingsIfUndetermined, state == .notDetermined {
-                NSWorkspace.shared.open(
-                    AccessibilityPermissionManager.accessibilitySettingsDeepLink)
-            }
+            // Do **not** auto-open System Settings or fire the system AX
+            // modal here — that stacks with Gatekeeper and leaves a second
+            // “would like to control this computer” sheet after grant.
+            // The onboarding primary button is the only prompt entry point.
+            _ = openSettingsIfUndetermined
             return
         }
 
@@ -329,29 +330,83 @@ final class AppCoordinator: NSObject {
     }
 
     private func performPreset(_ preset: PresetAction) {
+        // Coach: don't treat our own onboarding window as the target.
+        if isCoachActive,
+           NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+            == UninstallScript.bundleIdentifier {
+            onboarding.setCoachFeedback(
+                "That’s Quintile’s own window — click Terminal, Finder, or Safari, then ⌃⌥[.")
+            failureSignal()
+            return
+        }
+
         let outcome = tilingActions.perform(preset)
+        // Some apps move but clamp size/position past the strict AX verify
+        // tolerance (looks tiled to the user, still .failed). Count a third
+        // that approximately landed as a first win for teaching.
+        let approxWin = FirstWinDetector.isThirdPreset(preset)
+            && isApproximateThirdPlacement(preset)
         switch outcome {
         case .failed:
             failureSignal()
-            if onboardingProgress.coach == .waitingForTry {
-                onboarding.setCoachFeedback(
-                    "That app blocked the resize — try Finder, Notes, or Safari.")
+            if isCoachActive {
+                if approxWin {
+                    completeFirstWinCoach()
+                } else {
+                    onboarding.setCoachFeedback(
+                        "That app wouldn’t take the full size (many have a minimum width/height). "
+                        + "Click Terminal, Finder, or Safari, then hold Control+Option and press [.")
+                }
             }
         case .noFocusedWindow:
-            if onboardingProgress.coach == .waitingForTry {
+            if isCoachActive {
                 onboarding.setCoachFeedback(
-                    "Click a window first, then hold Control+Option and press [.")
+                    "Click a document window first (Terminal, Finder, or Safari), "
+                    + "then hold Control+Option and press [.")
             }
         case .performed:
             if FirstWinDetector.shouldCompleteCoach(preset: preset, outcome: outcome),
-               onboardingProgress.coach == .waitingForTry
-                || onboardingProgress.coach == .neverSeen {
-                onboardingProgress.markCompleted()
-                onboarding.update(state: permissionManager.state, coach: .completed)
-                onboarding.show()
+               isCoachActive {
+                completeFirstWinCoach()
             }
         case .onlyOneDisplay:
             break
+        }
+    }
+
+    private var isCoachActive: Bool {
+        onboardingProgress.coach == .waitingForTry
+            || onboardingProgress.coach == .neverSeen
+    }
+
+    private func completeFirstWinCoach() {
+        onboardingProgress.markCompleted()
+        onboarding.update(state: permissionManager.state, coach: .completed)
+        onboarding.show()
+    }
+
+    /// True when the focused window’s frame is near the preset third (relaxed).
+    private func isApproximateThirdPlacement(_ preset: PresetAction) -> Bool {
+        guard FirstWinDetector.isThirdPreset(preset) else { return false }
+        do {
+            guard let window = try windowController.focusedWindow(),
+                  let display = try windowController.display(containing: window) else {
+                return false
+            }
+            let target = GridMath.cellSpanToFrame(
+                profile: preset.implicitProfile,
+                displayBounds: display.usableBounds,
+                span: preset.span)
+            let actual = try windowController.frame(of: window)
+            // ~5% of display or 48pt — teaching only, not placement correctness.
+            let tol = max(48, min(display.usableBounds.width,
+                                  display.usableBounds.height) * 0.05)
+            return abs(actual.midX - target.midX) <= tol
+                && abs(actual.midY - target.midY) <= tol
+                && abs(actual.width - target.width) <= tol * 1.5
+                && abs(actual.height - target.height) <= tol * 1.5
+        } catch {
+            return false
         }
     }
 
@@ -707,12 +762,16 @@ final class AppCoordinator: NSObject {
         controller.onRequestPermission = { [weak self] in
             guard let self else { return }
             self.onboarding.markUserAttemptedEnablement()
-            self.permissionManager.checkOnLaunch()
+            // One system prompt (lists the app) + Settings — only on user click.
+            self.permissionManager.requestPermissionPrompt()
             self.syncPermissionState()
             NSWorkspace.shared.open(AccessibilityPermissionManager.accessibilitySettingsDeepLink)
         }
         controller.onOpenSettings = { [weak self] in
-            self?.onboarding.markUserAttemptedEnablement()
+            guard let self else { return }
+            self.onboarding.markUserAttemptedEnablement()
+            self.permissionManager.requestPermissionPrompt()
+            self.syncPermissionState()
             NSWorkspace.shared.open(AccessibilityPermissionManager.accessibilitySettingsDeepLink)
         }
         controller.onCheckAgain = { [weak self] in

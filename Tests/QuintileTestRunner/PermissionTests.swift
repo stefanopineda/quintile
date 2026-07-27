@@ -25,21 +25,32 @@ private final class FakeClock {
 /// U1 test scenarios: permission state machine over a fake trust checker.
 func permissionTests(_ t: TestHarness) {
     t.suite("AccessibilityPermissionManager") { t in
-        t.test("fresh install starts notDetermined and prompts exactly once per cold launch") {
+        t.test("fresh install checkOnLaunch does not show the system AX modal") {
             let fake = FakeTrustChecker()
             let manager = AccessibilityPermissionManager(trustChecker: fake)
             t.expectEqual(manager.state, .notDetermined)
             t.expectEqual(fake.promptCallCount, 0, "no prompt before checkOnLaunch")
 
             manager.checkOnLaunch()
-            t.expectEqual(fake.promptCallCount, 1, "first checkOnLaunch prompts")
+            t.expectEqual(fake.promptCallCount, 0, "launch must not stack the system modal")
 
             manager.checkOnLaunch()
-            manager.checkOnLaunch()
             manager.refresh()
+            t.expectEqual(fake.promptCallCount, 0, "still no system prompt from launch/refresh")
+            t.expect(fake.totalCallCount > 1, "still checks trust without prompting")
+        }
+
+        t.test("requestPermissionPrompt shows the system modal once per cold launch") {
+            let fake = FakeTrustChecker()
+            let manager = AccessibilityPermissionManager(trustChecker: fake)
+
+            manager.requestPermissionPrompt()
+            t.expectEqual(fake.promptCallCount, 1, "user CTA prompts once")
+
+            manager.requestPermissionPrompt()
+            manager.requestPermissionPrompt()
             manager.refresh()
-            t.expectEqual(fake.promptCallCount, 1, "subsequent checks never re-prompt")
-            t.expect(fake.totalCallCount > 1, "subsequent checks still check, just without prompting")
+            t.expectEqual(fake.promptCallCount, 1, "subsequent CTAs never re-prompt")
         }
 
         t.test("notDetermined → granted on next refresh; granted handlers fire exactly once") {
@@ -58,7 +69,7 @@ func permissionTests(_ t: TestHarness) {
             t.expectEqual(grantedFires, 1, "handler fires once on the grant transition")
         }
 
-        t.test("one follow-up refresh after the prompt stays notDetermined (grace window, not an instant denial)") {
+        t.test("one follow-up refresh after launch stays notDetermined (grace window, not an instant denial)") {
             let fake = FakeTrustChecker()
             let manager = AccessibilityPermissionManager(trustChecker: fake)
 
@@ -67,7 +78,7 @@ func permissionTests(_ t: TestHarness) {
 
             manager.refresh()
             t.expectEqual(manager.state, .notDetermined, "a single follow-up check must not read as a decline")
-            t.expectEqual(fake.promptCallCount, 1, "grace-window checks never re-prompt")
+            t.expectEqual(fake.promptCallCount, 0, "grace-window checks never prompt")
         }
 
         t.test("many fast polls inside 30s wall-clock grace stay notDetermined") {
@@ -98,7 +109,7 @@ func permissionTests(_ t: TestHarness) {
             clock.advance(AccessibilityPermissionManager.deniedGraceDuration)
             manager.refresh()
             t.expectEqual(manager.state, .denied)
-            t.expectEqual(fake.promptCallCount, 1, "denial detection never re-prompts")
+            t.expectEqual(fake.promptCallCount, 0, "denial detection never prompts")
         }
 
         t.test("granting inside the grace window still transitions cleanly to granted") {
