@@ -236,7 +236,8 @@ final class OnboardingWindowController: NSObject {
             \(menuBarNote)
 
             Quintile needs Accessibility permission to move and resize windows. \
-            System Settings opens to the Accessibility list — turn Quintile ON. \
+            Press Open System Settings, turn Quintile ON in the Accessibility list, \
+            then return here and click Check Again if needed. \
             Quintile never reads your screen; it only positions windows.
             """
             footerLabel.stringValue = "Only one permission. No Screen Recording, no network."
@@ -315,7 +316,8 @@ final class OnboardingWindowController: NSObject {
         iconLabel.stringValue = "⊞"
         titleLabel.stringValue = "Try your first tile"
         var body = """
-        1. Click any window (Safari, Notes, Finder…).
+        1. Click a real app window — Terminal, Finder, or Safari \
+        (not this coach, and not System Settings).
         2. Hold Control and Option together.
         3. Press [  (left third of the screen).
 

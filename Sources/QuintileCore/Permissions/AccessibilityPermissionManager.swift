@@ -83,13 +83,32 @@ public final class AccessibilityPermissionManager {
         grantedHandlers.append(handler)
     }
 
-    /// Launch-time check. Triggers the OS permission prompt at most once per
-    /// cold launch (only while not yet granted); every subsequent call — and
-    /// every `refresh()` — checks without prompting.
+    /// Launch-time check **without** the system Accessibility modal.
+    /// Prompting on cold launch stacks under Gatekeeper and our own
+    /// onboarding window and leaves a redundant system sheet after the user
+    /// already toggled the setting. Call `requestPermissionPrompt()` from the
+    /// user's "Open System Settings" CTA instead.
     public func checkOnLaunch() {
+        // Still start denial-grace timing so we eventually surface a clear
+        // "not granted" state if the user never acts — without a system modal.
+        if state != .granted && !hasPromptedThisLaunch {
+            hasPromptedThisLaunch = true
+            apply(trusted: trustChecker.isProcessTrusted(promptUser: false))
+        } else {
+            refresh()
+        }
+    }
+
+    /// User-initiated: show the macOS Accessibility prompt at most once per
+    /// cold launch (adds Quintile to the Accessibility list) and record the
+    /// result. Pair with opening the Privacy & Security deep link.
+    public func requestPermissionPrompt() {
         if state != .granted && !hasPromptedThisLaunch {
             hasPromptedThisLaunch = true
             apply(trusted: trustChecker.isProcessTrusted(promptUser: true))
+        } else if state != .granted {
+            // Already used the one-shot system prompt this launch — re-check only.
+            refresh()
         } else {
             refresh()
         }
