@@ -20,7 +20,7 @@ https://github.com/stefanopineda/quintile/raw/main/docs/demos/hero.mp4
 
 | You want… | Quintile |
 |-----------|----------|
-| Place a window on columns 1–3 of a 5-wide grid from the keyboard | Yes — that’s the point |
+| Precise keyboard control of windows on a grid — put them where you want, quickly | Yes — that’s the point |
 | Halves / thirds / quarters only | Works, but [Rectangle](https://github.com/rxhanson/Rectangle) already covers this well |
 | Auto-tiling / BSP / yabai layouts | No — you place windows; nothing rearranges for you |
 | Mouse drag-to-snap zones | No — keyboard-only by design |
@@ -111,7 +111,7 @@ Start with thirds. Everything else is optional.
 | `⌃⌥G` then two cells | span any rectangle on the grid |
 | `⌃⌥←↑↓→` | move within grid |
 | `⌃⌥P` | cycle grid profile |
-| `⌃⌥N` | next display |
+| `⌃⌥N` | next display (send focused window to another attached monitor) |
 
 Leader is **control + option**. Hold it, hit a key.
 
